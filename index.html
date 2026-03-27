@@ -259,7 +259,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
           <input id="target-input" type="text" placeholder="Δf  e.g. -6.715">
           <input id="target-label-input" type="text" placeholder="label" style="max-width:120px">
           <span style="font-size:12px;color:var(--muted)">tol ±</span>
-          <input id="tol-input" type="number" value="0.05" step="0.01" min="0.001" style="width:60px;background:var(--panel2);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:12px;padding:4px 6px;border-radius:2px;outline:none">
+          <input id="tol-input" type="number" value="0.1" step="0.01" min="0.001" style="width:60px;background:var(--panel2);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:12px;padding:4px 6px;border-radius:2px;outline:none">
           <span style="font-size:12px;color:var(--muted)">GHz</span>
           <button class="target-add-btn" onclick="addTarget()">+ Add</button>
           <button class="target-add-btn" style="color:var(--muted)" onclick="clearTargets()">Clear all</button>
@@ -532,7 +532,7 @@ function hitTest(x, y, dx, dy, exclude) {
   for (const c of components) {
     if (c === exclude) continue;
     const hit = intersectComp(x, y, dx, dy, c);
-    if (hit && hit.t > 0.5 && hit.t < bestT) {
+    if (hit && hit.t > 1 && hit.t < bestT) {
       bestT = hit.t; best = { comp: c, t: hit.t, nx: hit.nx, ny: hit.ny };
     }
   }
@@ -540,40 +540,59 @@ function hitTest(x, y, dx, dy, exclude) {
 }
 
 function intersectComp(rx, ry, dx, dy, c) {
-  // For mirror: line intersection
+  // Mirror: line-segment intersection
   if (c.type === 'mirror') {
     const ang = c.angle * Math.PI / 180;
     const mx = Math.cos(ang), my = Math.sin(ang);
     const hs = COMP_SIZE / 2;
     const ex1 = c.x - mx*hs, ey1 = c.y - my*hs;
-    const ex2 = c.x + mx*hs, ey2 = c.y + my*hs;
-    const hit = lineLineIntersect(rx,ry,dx,dy, ex1,ey1,ex2-ex1,ey2-ey1);
-    if (!hit) return null;
-    // normal to mirror (perpendicular to mirror line)
-    const nx = -my, ny = mx; // or +my,-mx; choose facing toward ray
-    return { t: hit.t, nx, ny };
+    const hit = lineLineIntersect(rx,ry,dx,dy, ex1,ey1, mx*COMP_SIZE, my*COMP_SIZE);
+    if (!hit || hit.t < 1) return null;
+    const nx = -my, ny = mx;
+    // pick normal facing toward ray origin
+    const facing = nx*(-dx) + ny*(-dy);
+    return { t: hit.t, nx: facing>=0?nx:-nx, ny: facing>=0?ny:-ny };
   }
-  // For all others: ellipse/rect hit test using per-type width
-  const hs  = COMP_SIZE   * 0.52;
-  const hsw = (COMP_W[c.type] || COMP_SIZE) * 0.55;
-  const ex = c.x - rx, ey = c.y - ry;
-  const a = dx*dx + dy*dy;
-  const b = 2*(dx*ex + dy*ey); // note: ex = c.x-rx, not rx-c.x
-  // Ellipse hit: (cx/hsw)^2 + (cy/hs)^2 = 1
-  const cx2 = rx - c.x, cy2 = ry - c.y;
-  // parametric: solve (cx2+t*dx)^2/hsw^2 + (cy2+t*dy)^2/hs^2 = 1
-  const A = dx*dx/(hsw*hsw) + dy*dy/(hs*hs);
-  const B = 2*(cx2*dx/(hsw*hsw) + cy2*dy/(hs*hs));
-  const C = cx2*cx2/(hsw*hsw) + cy2*cy2/(hs*hs) - 1;
-  const disc = B*B - 4*A*C;
-  if (disc < 0) return null;
-  const t = (-B - Math.sqrt(disc)) / (2*A);
-  if (t < 0.5) return null;
-  const hx = rx + t*dx - c.x, hy = ry + t*dy - c.y;
-  // normal on ellipse surface
-  const nx = hx/(hsw*hsw), ny = hy/(hs*hs);
-  const nlen = Math.hypot(nx, ny);
-  return { t, nx: nx/nlen, ny: ny/nlen };
+
+  // All others: axis-aligned bounding box (AABB)
+  const hw = (COMP_W[c.type] || COMP_SIZE) / 2;
+  const hh = COMP_SIZE / 2;
+  const x1 = c.x - hw, x2 = c.x + hw;
+  const y1 = c.y - hh, y2 = c.y + hh;
+
+  // Ray-AABB slab method
+  let tmin = -Infinity, tmax = Infinity;
+
+  if (Math.abs(dx) < 1e-10) {
+    if (rx < x1 || rx > x2) return null;
+  } else {
+    const tx1 = (x1 - rx) / dx;
+    const tx2 = (x2 - rx) / dx;
+    tmin = Math.max(tmin, Math.min(tx1, tx2));
+    tmax = Math.min(tmax, Math.max(tx1, tx2));
+  }
+
+  if (Math.abs(dy) < 1e-10) {
+    if (ry < y1 || ry > y2) return null;
+  } else {
+    const ty1 = (y1 - ry) / dy;
+    const ty2 = (y2 - ry) / dy;
+    tmin = Math.max(tmin, Math.min(ty1, ty2));
+    tmax = Math.min(tmax, Math.max(ty1, ty2));
+  }
+
+  if (tmax < tmin || tmax < 1) return null;
+  const t = tmin > 1 ? tmin : tmax;
+  if (t < 1) return null;
+
+  // Normal: which face did we hit?
+  const hx2 = rx + t*dx - c.x;
+  const hy2 = ry + t*dy - c.y;
+  let nx = 0, ny = 0;
+  if (Math.abs(hx2/hw) > Math.abs(hy2/hh)) nx = hx2 > 0 ? 1 : -1;
+  else ny = hy2 > 0 ? 1 : -1;
+
+  return { t, nx, ny };
 }
 
 function lineLineIntersect(rx,ry,dx,dy, ex,ey,fx,fy) {
@@ -592,9 +611,9 @@ function reflect(dx, dy, nx, ny) {
   return { dx: dx - 2*dot*nx, dy: dy - 2*dot*ny };
 }
 
-function traceBeam(beam, allBeams) {
+function traceBeam(beam, allBeams, excludeComp) {
   if (beam.bounces > MAX_BOUNCES) return;
-  const hit = hitTest(beam.x, beam.y, beam.dx, beam.dy, null);
+  const hit = hitTest(beam.x, beam.y, beam.dx, beam.dy, excludeComp || null);
   if (!hit) {
     const ex = beam.x + beam.dx * MAX_DIST;
     const ey = beam.y + beam.dy * MAX_DIST;
@@ -605,9 +624,14 @@ function traceBeam(beam, allBeams) {
 
   const hx = beam.x + beam.dx * hit.t;
   const hy = beam.y + beam.dy * hit.t;
+  // Record segment to the true hit point (for clean drawing)
   beam.segments.push({ x1:beam.x, y1:beam.y, x2:hx, y2:hy, freqs:beam.freqs, pol:beam.pol??0 });
 
   const c = hit.comp;
+  // Push child beam start point past the component so it doesn't re-hit immediately
+  const PUSH = COMP_SIZE * 0.6;
+  const ox = hx + beam.dx * PUSH;   // transmit / pass-through direction
+  const oy = hy + beam.dy * PUSH;
 
   if (c.type === 'dump') { beam.terminal = 'dump'; allBeams.push(beam); return; }
 
@@ -621,19 +645,19 @@ function traceBeam(beam, allBeams) {
 
   if (c.type === 'mirror') {
     const r = reflect(beam.dx, beam.dy, hit.nx, hit.ny);
-    const nb = { ...beam, x:hx, y:hy, dx:r.dx, dy:r.dy, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nb, allBeams);
+    const mx = hx + r.dx * PUSH, my = hy + r.dy * PUSH;
+    const nb = { ...beam, x:mx, y:my, dx:r.dx, dy:r.dy, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
+    traceBeam(nb, allBeams, c);
     return;
   }
 
   if (c.type === 'aom') {
-    // freq shift: order * freq_MHz / 1000 GHz, passes times
     const shift = c.order * (c.freq / 1000) * c.passes;
     const newFreqs = beam.freqs.map(f => ({ ...f, f: f.f + shift }));
-    const nb = { ...beam, x:hx, y:hy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nb, allBeams);
+    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
+    traceBeam(nb, allBeams, c);
     return;
   }
 
@@ -655,9 +679,9 @@ function traceBeam(beam, allBeams) {
         });
       }
     }
-    const nb = { ...beam, x:hx, y:hy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nb, allBeams);
+    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
+    traceBeam(nb, allBeams, c);
     return;
   }
 
@@ -677,15 +701,16 @@ function traceBeam(beam, allBeams) {
     // transmitted: same direction, H pol
     if (T > 0.001) {
       const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * T }));
-      const nbT = { ...beam, x:hx, y:hy, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
-      traceBeam(nbT, allBeams);
+      const nbT = { ...beam, x:ox, y:oy, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
+      traceBeam(nbT, allBeams, c);
     }
-    // reflected: mirrored off face normal, V pol
+    // reflected: push along reflected direction
     if (R > 0.001) {
       const ref = reflect(beam.dx, beam.dy, nnx, nny);
+      const rx2 = hx + ref.dx * PUSH, ry2 = hy + ref.dy * PUSH;
       const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * R }));
-      const nbR = { ...beam, x:hx, y:hy, dx:ref.dx, dy:ref.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
-      traceBeam(nbR, allBeams);
+      const nbR = { ...beam, x:rx2, y:ry2, dx:ref.dx, dy:ref.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
+      traceBeam(nbR, allBeams, c);
     }
     allBeams.push(beam);
     return;
@@ -695,26 +720,25 @@ function traceBeam(beam, allBeams) {
   if (c.type === 'hwp') {
     const fa = c.fast_axis || 0;
     const newPol = ((2 * fa - (beam.pol || 0)) % 360 + 360) % 360;
-    const nb = { ...beam, x:hx, y:hy, pol:newPol, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nb, allBeams);
+    const nb = { ...beam, x:ox, y:oy, pol:newPol, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
+    traceBeam(nb, allBeams, c);
     return;
   }
 
-  // QWP: rotates polarisation by fast_axis offset (simplified)
   if (c.type === 'qwp') {
     const fa = c.fast_axis || 45;
     const newPol = ((beam.pol || 0) + fa) % 360;
-    const nb = { ...beam, x:hx, y:hy, pol:newPol, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nb, allBeams);
+    const nb = { ...beam, x:ox, y:oy, pol:newPol, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
+    traceBeam(nb, allBeams, c);
     return;
   }
 
   // other: pass through
-  const nb = { ...beam, x:hx, y:hy, bounces:beam.bounces+1, segments:[] };
-  traceBeam(nb, allBeams);
+  const nb = { ...beam, x:ox, y:oy, bounces:beam.bounces+1, segments:[] };
   allBeams.push(beam);
+  traceBeam(nb, allBeams, c);
 }
 
 // Bessel J_n(x) approximation
@@ -977,10 +1001,18 @@ function updateSpectrum(beams) {
     sctx.setLineDash([4,3]);
     sctx.beginPath(); sctx.moveTo(xp, PAD_T); sctx.lineTo(xp, baseline); sctx.stroke();
     sctx.setLineDash([]);
-    // label top
-    sctx.font = '9px IBM Plex Mono'; sctx.fillStyle = t.color + 'dd';
+    // label top — show match status inline
+    const nearest = allFreqs.length ? allFreqs.reduce((a,b)=>Math.abs(a.f-t.f)<Math.abs(b.f-t.f)?a:b) : null;
+    const gap = nearest ? nearest.f - t.f : null;
+    const matched = gap !== null && Math.abs(gap) <= tol;
+    sctx.font = 'bold 9px IBM Plex Mono'; sctx.fillStyle = matched ? '#06d6a0' : t.color + 'dd';
     sctx.textAlign = 'center';
-    sctx.fillText(t.label, xp, PAD_T - 3);
+    sctx.fillText(t.label, xp, PAD_T - 12);
+    if (gap !== null) {
+      sctx.font = '8px IBM Plex Mono';
+      sctx.fillStyle = matched ? '#06d6a0cc' : '#ff6b6bcc';
+      sctx.fillText(matched ? `✓ ${gap>=0?'+':''}${gap.toFixed(3)}` : `${gap>=0?'+':''}${gap.toFixed(3)} off`, xp, PAD_T - 2);
+    }
     sctx.restore();
   });
 
@@ -1288,27 +1320,98 @@ function deleteSelected() {
 // ═══════════════════════════════════════════════════════════════
 // EXAMPLE SETUP (our Yb design)
 // ═══════════════════════════════════════════════════════════════
+// EXAMPLE SETUP — Yb 680nm two-EOM split path
+// ═══════════════════════════════════════════════════════════════
 function loadExample() {
   components = [];
   nextId = 1;
-  const cx = W/2, cy = H/2;
+  vp = { x: 30, y: 60, scale: 1 };
 
-  const laser = mkComp('laser',   cx-380, cy);      laser.wavelength=680; laser.angle=0; laser.label='680nm';
-  const fiber  = mkComp('hwp',    cx-280, cy);       fiber.label='HWP'; fiber.fast_axis=22.5;
-  const aom    = mkComp('aom',    cx-180, cy);       aom.freq=200; aom.order=1; aom.passes=2; aom.label='AOM';
-  const pbs1   = mkComp('pbs',    cx-60,  cy);       pbs1.angle=45; pbs1.ratio=0.52; pbs1.label='PBS1';
-  const eom1   = mkComp('eom',    cx+80,  cy);       eom1.rf=4.696; eom1.beta=1.526; eom1.label='EOM1';
-  const m1     = mkComp('mirror', cx+190, cy);       m1.angle=45;
-  const m2     = mkComp('mirror', cx+190, cy+130);   m2.angle=135;
-  const pbs2   = mkComp('pbs',    cx+330, cy+130);   pbs2.angle=45; pbs2.ratio=0.5; pbs2.label='PBS2';
-  const eom2   = mkComp('eom',    cx-60,  cy-130);   eom2.rf=2.691; eom2.beta=1.920; eom2.label='EOM2';
-  const m3     = mkComp('mirror', cx+80,  cy-130);   m3.angle=45;
-  const m4     = mkComp('mirror', cx+330, cy-130);   m4.angle=135;
-  const dump   = mkComp('dump',   cx+460, cy+130);   dump.label='Output';
+  // Matches actual lab diagram:
+  //
+  //        M3(480,140)────────────────────M4(760,140)
+  //         ↑  EOM2(480,220)              ↓
+  //         │                             │
+  // Laser→AOM→PBS1(320,300)──EOM1(480,300)──M1(760,300)
+  //                                          ↓
+  //                           PBS2(760,440)──M2(760,440)←←←←
+  //                              ↓
+  //                           Output(920,440)
+  //
+  // PATH A (H pol, transmitted right): PBS1→EOM1→M1↓→M2=PBS2→Output
+  // PATH B (V pol, reflected up):      PBS1↑→M3→EOM2→M4↓→PBS2
 
-  components = [laser,fiber,aom,pbs1,eom1,m1,m2,pbs2,eom2,m3,m4,dump];
+  const YM = 300;  // main beam y
+  const YT = 140;  // top path y
+  const YB = 440;  // bottom/output y
+
+  const X_laser = 50;
+  const X_aom   = 180;
+  const X_pbs1  = 320;
+  const X_eom1  = 480;
+  const X_m1    = 760;   // M1: right→down
+  const X_pbs2  = 760;   // PBS2: combines at bottom
+  const X_dump  = 920;
+
+  // Path B x positions
+  const X_m3    = X_pbs1;   // M3 above PBS1: up→right
+  const X_eom2  = 480;
+  const X_m4    = X_m1;     // M4: right→down into PBS2
+
+  // ── Components ──────────────────────────────────────────────
+  // Laser: H pol (0°), AOM shifts +400MHz
+  const laser = mkComp('laser', X_laser, YM);
+  laser.wavelength=680; laser.angle=0; laser.pol=45; laser.label='680nm';
+
+  const aom = mkComp('aom', X_aom, YM);
+  aom.freq=200; aom.order=1; aom.passes=2; aom.label='AOM';
+
+  // PBS1: face=45° → H transmits right, V reflects up
+  const pbs1 = mkComp('pbs', X_pbs1, YM);
+  pbs1.angle=45; pbs1.label='PBS1';
+
+  // PATH A — right then down
+  const eom1 = mkComp('eom', X_eom1, YM);
+  eom1.rf=4.696; eom1.beta=1.526; eom1.label='EOM1';
+
+  // M1: right beam → deflect down (face=135°)
+  const m1 = mkComp('mirror', X_m1, YM);
+  m1.angle=135;
+
+  // M2: down beam → deflect left toward PBS2 (face=45°, at YB)
+  const m2 = mkComp('mirror', X_m1, YB);
+  m2.angle=45;
+
+  // PBS2: combines both paths, face=45°
+  // Path A arrives from right (going left), Path B arrives from above (going down)
+  const pbs2 = mkComp('pbs', X_pbs2-160, YB);
+  pbs2.angle=45; pbs2.label='PBS2';
+
+  // Output
+  const dump = mkComp('dump', X_dump-160, YB);
+  dump.label='Output';
+
+  // PATH B — up then right then down
+  // M3 above PBS1: beam going up → deflect right (face=135°)
+  const m3 = mkComp('mirror', X_m3, YT);
+  m3.angle=135;
+
+  // EOM2 on top path
+  const eom2 = mkComp('eom', X_eom2, YT);
+  eom2.rf=2.691; eom2.beta=1.920; eom2.label='EOM2';
+
+  // M4: right beam → deflect down (face=45°) toward PBS2
+  const m4 = mkComp('mirror', X_m4, YT);
+  m4.angle=45;
+
+  components = [laser, aom, pbs1, eom1, m1, m2, pbs2, dump, m3, eom2, m4];
+
+  targetFreqs = [];
+
   selected = null;
-  updateProps(); render();
+  renderTargetList();
+  updateProps();
+  render();
 }
 
 function clearAll() {
