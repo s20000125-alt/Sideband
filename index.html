@@ -17,7 +17,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'IBM Plex Mono',monospace;color:var(--text)}
 
 /* ── LAYOUT ── */
-#app{display:grid;grid-template-columns:200px 1fr 260px;grid-template-rows:44px 1fr;height:100vh;padding-bottom:var(--fp-h,220px)}
+#app{display:grid;grid-template-columns:200px 1fr 260px;grid-template-rows:44px 1fr;height:100vh;padding-bottom:var(--fp-h,160px)}
 #topbar{grid-column:1/4;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px}
 #topbar h1{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--beam);letter-spacing:.06em;text-transform:uppercase}
 #topbar .sub{font-size:13px;color:var(--muted)}
@@ -60,7 +60,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 /* ── BOTTOM FLOATING PANEL ── */
 #freqbar{
   position:fixed; bottom:0; left:200px; right:0;
-  height:var(--fp-h,260px);
+  height:var(--fp-h,160px);
   background:var(--panel);
   border-top:2px solid var(--border);
   display:flex; flex-direction:column;
@@ -336,8 +336,8 @@ const COMP_SIZE = 46;
 function mkComp(type, x, y) {
   const base = { id: nextId++, type, x, y, angle: 0 };
   if (type === 'laser')  return { ...base, wavelength: 680, power: 1.0, pol: 0, label:'Laser' };
-  if (type === 'aom')    return { ...base, freq: 200, order: 1, passes: 2, label:'AOM' };
-  if (type === 'eom')    return { ...base, rf: 4.696, beta: 1.435, label:'EOM' };
+  if (type === 'eom')    return { ...base, angle: 270, rf: 4.696, beta: 1.435, label:'EOM' };
+  if (type === 'aom')    return { ...base, angle: 270, freq: 200, order: 1, passes: 2, label:'AOM' };
   if (type === 'mirror') return { ...base, angle: 45, reflectivity: 1.0, label:'Mirror' };
   if (type === 'pbs')    return { ...base, angle: 45, label:'PBS' };
   if (type === 'hwp')    return { ...base, fast_axis: 22.5, label:'HWP' };
@@ -393,7 +393,7 @@ function drawComp(c) {
     ctx.shadowBlur = 0;
     ctx.rotate(-(c.angle) * Math.PI / 180);
     ctx.font = '11px IBM Plex Mono'; ctx.fillStyle = st.stroke+'bb';
-    ctx.textAlign = 'center'; ctx.fillText(c.label, 0, -s/2+2);
+    ctx.textAlign = 'center'; ctx.fillText(c.label, 0, -16);
     ctx.restore(); return;
   }
 
@@ -458,6 +458,41 @@ function drawComp(c) {
     ctx.moveTo(sw/2+16, 0);
     ctx.lineTo(sw/2+11, -4); ctx.lineTo(sw/2+11, 4); ctx.closePath();
     ctx.fillStyle = '#ff3355cc'; ctx.fill();
+  }
+
+  // EOM / AOM: draw IN and OUT port arrows along the beam axis (defined by c.angle)
+  if (c.type === 'eom' || c.type === 'aom') {
+    const axAng = (c.angle || 0) * Math.PI / 180;
+    const axDx = Math.cos(axAng), axDy = Math.sin(axAng);  // IN→OUT direction
+    const col = st.stroke + '88';
+    ctx.font = '9px IBM Plex Mono'; ctx.fillStyle = col;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const PORT = sw/2 + 8;
+    // OUT port: along +axis direction
+    const outX = axDx * PORT, outY = axDy * PORT;
+    ctx.fillText('OUT', axDx*(PORT+12), axDy*(PORT+12));
+    ctx.beginPath(); ctx.moveTo(axDx*sw/2, axDy*sw/2); ctx.lineTo(outX, outY);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.stroke();
+    // arrowhead pointing OUT
+    const ah = 5;
+    ctx.beginPath();
+    ctx.moveTo(outX, outY);
+    ctx.lineTo(outX - axDx*ah + axDy*ah*0.5, outY - axDy*ah - axDx*ah*0.5);
+    ctx.lineTo(outX - axDx*ah - axDy*ah*0.5, outY - axDy*ah + axDx*ah*0.5);
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    // IN port: along -axis direction
+    const inX = -axDx * PORT, inY = -axDy * PORT;
+    ctx.fillStyle = col;
+    ctx.fillText('IN', -axDx*(PORT+12), -axDy*(PORT+12));
+    ctx.beginPath(); ctx.moveTo(inX, inY); ctx.lineTo(-axDx*sw/2, -axDy*sw/2);
+    ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.stroke();
+    // arrowhead pointing into IN
+    ctx.beginPath();
+    ctx.moveTo(-axDx*sw/2, -axDy*sw/2);
+    ctx.lineTo(-axDx*sw/2 - axDx*ah + axDy*ah*0.5, -axDy*sw/2 - axDy*ah - axDx*ah*0.5);
+    ctx.lineTo(-axDx*sw/2 - axDx*ah - axDy*ah*0.5, -axDy*sw/2 - axDy*ah + axDx*ah*0.5);
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    ctx.textBaseline = 'alphabetic';
   }
 
   ctx.restore();
@@ -548,13 +583,47 @@ function intersectComp(rx, ry, dx, dy, c) {
     const ex1 = c.x - mx*hs, ey1 = c.y - my*hs;
     const hit = lineLineIntersect(rx,ry,dx,dy, ex1,ey1, mx*COMP_SIZE, my*COMP_SIZE);
     if (!hit || hit.t < 1) return null;
+    // Normal perpendicular to mirror line
     const nx = -my, ny = mx;
-    // pick normal facing toward ray origin
+    // Only reflect if beam is coming from the front face (dot product with incoming ray negative means facing)
     const facing = nx*(-dx) + ny*(-dy);
-    return { t: hit.t, nx: facing>=0?nx:-nx, ny: facing>=0?ny:-ny };
+    // If beam comes from behind (facing < 0), mirror does not interact — beam passes through
+    if (facing < 0) return null;
+    return { t: hit.t, nx, ny };
   }
 
   // All others: axis-aligned bounding box (AABB)
+
+  // EOM and AOM: one-way with absorbing OUT face.
+  // c.angle defines IN→OUT axis direction.
+  // dot > 0.7  → beam entering from IN side along axis → modulate
+  // dot < -0.7 → beam approaching from OUT side → ABSORBED, beam terminates
+  // -0.7 ≤ dot ≤ 0.7 → side/oblique entry → transparent (return null)
+  if (c.type === 'eom' || c.type === 'aom') {
+    const axAng = (c.angle || 0) * Math.PI / 180;
+    const axDx = Math.cos(axAng), axDy = Math.sin(axAng);
+    const dot = dx * axDx + dy * axDy;
+
+    if (dot > -0.7 && dot < 0.7) return null; // side/oblique → transparent
+
+    // Need AABB hit distance for both forward and blocked cases
+    const hw2 = (COMP_W[c.type] || COMP_SIZE) / 2;
+    const hh2 = COMP_SIZE / 2;
+    const bx1 = c.x - hw2, bx2 = c.x + hw2;
+    const by1 = c.y - hh2, by2 = c.y + hh2;
+    let btmin = -Infinity, btmax = Infinity;
+    if (Math.abs(dx) < 1e-10) { if (rx < bx1 || rx > bx2) return null; }
+    else { const t1=(bx1-rx)/dx, t2=(bx2-rx)/dx; btmin=Math.max(btmin,Math.min(t1,t2)); btmax=Math.min(btmax,Math.max(t1,t2)); }
+    if (Math.abs(dy) < 1e-10) { if (ry < by1 || ry > by2) return null; }
+    else { const t1=(by1-ry)/dy, t2=(by2-ry)/dy; btmin=Math.max(btmin,Math.min(t1,t2)); btmax=Math.min(btmax,Math.max(t1,t2)); }
+    if (btmax < btmin || btmax < 1) return null;
+    const bt = btmin > 1 ? btmin : btmax;
+    if (bt < 1) return null;
+
+    if (dot < 0) return { t: bt, nx: 0, ny: 0, blocked: true }; // OUT face → absorb
+    return { t: bt, nx: 0, ny: 0 }; // correct IN→OUT → modulate
+  }
+
   const hw = (COMP_W[c.type] || COMP_SIZE) / 2;
   const hh = COMP_SIZE / 2;
   const x1 = c.x - hw, x2 = c.x + hw;
@@ -586,11 +655,13 @@ function intersectComp(rx, ry, dx, dy, c) {
   if (t < 1) return null;
 
   // Normal: which face did we hit?
-  const hx2 = rx + t*dx - c.x;
-  const hy2 = ry + t*dy - c.y;
+  // Use ray direction to determine entry face more reliably
   let nx = 0, ny = 0;
-  if (Math.abs(hx2/hw) > Math.abs(hy2/hh)) nx = hx2 > 0 ? 1 : -1;
-  else ny = hy2 > 0 ? 1 : -1;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    nx = dx > 0 ? -1 : 1;
+  } else {
+    ny = dy > 0 ? -1 : 1;
+  }
 
   return { t, nx, ny };
 }
@@ -628,12 +699,16 @@ function traceBeam(beam, allBeams, excludeComp) {
   beam.segments.push({ x1:beam.x, y1:beam.y, x2:hx, y2:hy, freqs:beam.freqs, pol:beam.pol??0 });
 
   const c = hit.comp;
-  // Push child beam start point past the component so it doesn't re-hit immediately
-  const PUSH = COMP_SIZE * 0.6;
+  // Push child beam start point well past the component so it doesn't re-hit immediately
+  // Must be > COMP_SIZE (46) to clear the largest component's half-extent
+  const PUSH = COMP_SIZE * 1.2;
   const ox = hx + beam.dx * PUSH;   // transmit / pass-through direction
   const oy = hy + beam.dy * PUSH;
 
   if (c.type === 'dump') { beam.terminal = 'dump'; allBeams.push(beam); return; }
+
+  // Beam hit EOM/AOM from wrong direction — blocked, terminate
+  if (hit.blocked) { beam.terminal = 'blocked'; allBeams.push(beam); return; }
 
   // Fiber In: absorb beam, store on component for FiberOut to pick up
   if (c.type === 'fiberin') {
@@ -644,10 +719,13 @@ function traceBeam(beam, allBeams, excludeComp) {
   }
 
   if (c.type === 'mirror') {
-    const r = reflect(beam.dx, beam.dy, hit.nx, hit.ny);
-    const mx = hx + r.dx * PUSH, my = hy + r.dy * PUSH;
-    const nb = { ...beam, x:mx, y:my, dx:r.dx, dy:r.dy, bounces:beam.bounces+1, segments:[] };
+    const refl = reflect(beam.dx, beam.dy, hit.nx, hit.ny);
+    const mx = hx + refl.dx * PUSH, my = hy + refl.dy * PUSH;
+    const reflectivity = (c.reflectivity !== undefined) ? c.reflectivity : 1.0;
+    const reflFreqs = beam.freqs.map(f => ({ ...f, power: f.power * reflectivity }));
+    const nb = { ...beam, x:mx, y:my, dx:refl.dx, dy:refl.dy, freqs:reflFreqs, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
+    // Only trace reflected beam — mirror blocks transmission entirely
     traceBeam(nb, allBeams, c);
     return;
   }
@@ -953,7 +1031,7 @@ function updateSpectrum(beams) {
   sctx.fillStyle = '#060810'; sctx.fillRect(0,0,sc.width,sc.height);
 
   const SH = sc.height, SW = sc.width;
-  const PAD_L = 36, PAD_R = 12, PAD_T = 16, PAD_B = 30;
+  const PAD_L = 36, PAD_R = 12, PAD_T = 38, PAD_B = 30;
   const plotW = SW - PAD_L - PAD_R;
   const plotH = SH - PAD_T - PAD_B;
   const baseline = PAD_T + plotH;
@@ -1005,13 +1083,13 @@ function updateSpectrum(beams) {
     const nearest = allFreqs.length ? allFreqs.reduce((a,b)=>Math.abs(a.f-t.f)<Math.abs(b.f-t.f)?a:b) : null;
     const gap = nearest ? nearest.f - t.f : null;
     const matched = gap !== null && Math.abs(gap) <= tol;
-    sctx.font = 'bold 9px IBM Plex Mono'; sctx.fillStyle = matched ? '#06d6a0' : t.color + 'dd';
+    sctx.font = 'bold 12px IBM Plex Mono'; sctx.fillStyle = matched ? '#06d6a0' : t.color + 'dd';
     sctx.textAlign = 'center';
-    sctx.fillText(t.label, xp, PAD_T - 12);
+    sctx.fillText(t.label, xp, PAD_T - 18);
     if (gap !== null) {
-      sctx.font = '8px IBM Plex Mono';
+      sctx.font = '11px IBM Plex Mono';
       sctx.fillStyle = matched ? '#06d6a0cc' : '#ff6b6bcc';
-      sctx.fillText(matched ? `✓ ${gap>=0?'+':''}${gap.toFixed(3)}` : `${gap>=0?'+':''}${gap.toFixed(3)} off`, xp, PAD_T - 2);
+      sctx.fillText(matched ? `✓ ${gap>=0?'+':''}${gap.toFixed(3)}` : `${gap>=0?'+':''}${gap.toFixed(3)} off`, xp, PAD_T - 4);
     }
     sctx.restore();
   });
@@ -1026,12 +1104,12 @@ function updateSpectrum(beams) {
     sctx.beginPath(); sctx.moveTo(xp, baseline); sctx.lineTo(xp, yp); sctx.stroke();
     sctx.shadowBlur = 0;
     sctx.restore();
-    sctx.fillStyle = f.color+'cc'; sctx.font = '9px IBM Plex Mono'; sctx.textAlign='center';
-    sctx.fillText(`${f.f>=0?'+':''}${f.f.toFixed(2)}`, xp, baseline+10);
+    sctx.fillStyle = f.color+'cc'; sctx.font = '11px IBM Plex Mono'; sctx.textAlign='center';
+    sctx.fillText(`${f.f>=0?'+':''}${f.f.toFixed(2)}`, xp, baseline+12);
   });
 
   // axis label
-  sctx.fillStyle='#334455'; sctx.font='9px IBM Plex Mono'; sctx.textAlign='left';
+  sctx.fillStyle='#334455'; sctx.font='11px IBM Plex Mono'; sctx.textAlign='left';
   sctx.fillText('Δf (GHz rel. carrier)', PAD_L, SH-3);
 
   // ── CHECK MATCHES ────────────────────────────────────────────
@@ -1206,7 +1284,7 @@ function updateProps() {
   let html = `<div class="prop-row"><div class="prop-label">Type</div><div class="prop-val">${c.type.toUpperCase()}</div></div>`;
   html += propText('Label', 'label', c.label);
 
-  // Only mirror, pbs, hwp, qwp, fiberout have editable angle
+  // mirror, pbs, hwp, qwp, fiberout have editable angle (not eom/aom — fixed vertical)
   if (['mirror','pbs','hwp','qwp','fiberout'].includes(c.type)) {
     html += propNum('Angle (deg)', 'angle', c.angle ?? 0, 0, 360, 5);
   }
