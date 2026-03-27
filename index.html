@@ -148,12 +148,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
 <!-- topbar -->
 <div id="topbar">
-  <h1>OpticSim</h1>
-  <span class="sub">/ Laser Path Designer</span>
+  <h1>IAMS Yb Lab</h1>
+  <span class="sub">/ Optical Path Designer</span>
   <div class="spacer"></div>
   <button class="tbtn" onclick="loadExample()">Load Example</button>
+  <button class="tbtn" onclick="vp={x:0,y:0,scale:1};render()">Reset View</button>
   <button class="tbtn danger" onclick="clearAll()">Clear All</button>
-  <span style="font-size:11px;color:var(--muted);margin-left:8px">Drag components onto canvas · Click to select · R = rotate · Del = delete</span>
+  <span style="font-size:11px;color:var(--muted);margin-left:8px">Drag components · Scroll = zoom · Drag canvas = pan · R = rotate · Del = delete</span>
 </div>
 
 <!-- palette -->
@@ -302,6 +303,28 @@ function resize() {
 window.addEventListener('resize', resize);
 
 // ═══════════════════════════════════════════════════════════════
+// VIEWPORT — pan & zoom
+// ═══════════════════════════════════════════════════════════════
+let vp = { x: 0, y: 0, scale: 1 };   // pan offset + zoom
+
+// screen → world
+function screenToWorld(sx, sy) {
+  return { x: (sx - vp.x) / vp.scale, y: (sy - vp.y) / vp.scale };
+}
+// world → screen
+function worldToScreen(wx, wy) {
+  return { x: wx * vp.scale + vp.x, y: wy * vp.scale + vp.y };
+}
+
+// apply viewport transform before drawing
+function applyVP() {
+  ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.x, vp.y);
+}
+function resetVP() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // COMPONENT DEFINITIONS
 // ═══════════════════════════════════════════════════════════════
 let components = [];
@@ -316,7 +339,7 @@ function mkComp(type, x, y) {
   if (type === 'aom')    return { ...base, freq: 200, order: 1, passes: 2, label:'AOM' };
   if (type === 'eom')    return { ...base, rf: 4.696, beta: 1.435, label:'EOM' };
   if (type === 'mirror') return { ...base, angle: 45, reflectivity: 1.0, label:'Mirror' };
-  if (type === 'pbs')    return { ...base, angle: 45, ratio: 0.5, label:'PBS' };
+  if (type === 'pbs')    return { ...base, angle: 45, label:'PBS' };
   if (type === 'hwp')    return { ...base, fast_axis: 22.5, label:'HWP' };
   if (type === 'qwp')    return { ...base, fast_axis: 45, label:'QWP' };
   if (type === 'dump')     return { ...base, label:'Dump' };
@@ -376,19 +399,33 @@ function drawComp(c) {
 
   // PBS: square with diagonal
   if (c.type === 'pbs') {
-    ctx.rotate((c.angle - 45) * Math.PI / 180);
     if (c === selected) { ctx.shadowColor = st.glow; ctx.shadowBlur = 18; }
+    // draw the square aligned to world axes (PBS body doesn't rotate)
     ctx.beginPath(); ctx.rect(-s/2, -s/2, s, s);
     ctx.fillStyle = st.bg; ctx.fill();
-    ctx.strokeStyle = st.stroke; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-s/2, s/2); ctx.lineTo(s/2, -s/2);
-    ctx.strokeStyle = st.stroke+'cc'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = st.stroke; ctx.lineWidth = c === selected ? 2 : 1.5; ctx.stroke();
     ctx.shadowBlur = 0;
-    ctx.rotate(-(c.angle - 45) * Math.PI / 180);
-    ctx.font = '800 12px IBM Plex Mono'; ctx.fillStyle = st.stroke;
-    ctx.textAlign = 'center'; ctx.fillText('PBS', 0, 4);
+    // draw diagonal face rotated by angle
+    // diagonal face normal is at c.angle; the face itself is perpendicular = c.angle+90
+    const faceAng = (c.angle) * Math.PI / 180;  // face runs at this angle
+    const fLen = s * 0.72;
+    const fx = Math.cos(faceAng) * fLen/2, fy = Math.sin(faceAng) * fLen/2;
+    ctx.beginPath();
+    ctx.moveTo(-fx, -fy); ctx.lineTo(fx, fy);
+    ctx.strokeStyle = st.stroke + 'ee'; ctx.lineWidth = 2; ctx.stroke();
+    // small arrow showing reflected direction
+    const normAng = faceAng + Math.PI/2;
+    const nx2 = Math.cos(normAng)*10, ny2 = Math.sin(normAng)*10;
+    ctx.beginPath();
+    ctx.moveTo(0,0); ctx.lineTo(nx2, ny2);
+    ctx.strokeStyle = st.stroke+'66'; ctx.lineWidth=1; ctx.stroke();
+    // label
+    ctx.font = '800 13px IBM Plex Mono'; ctx.fillStyle = st.stroke;
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    ctx.fillText('PBS', 0, 0);
+    ctx.textBaseline='alphabetic';
     ctx.font = '11px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
-    ctx.fillText(c.label !== 'PBS' ? c.label : '', 0, -s/2-5);
+    ctx.fillText(c.label !== 'PBS' ? c.label : '', 0, -s/2-6);
     ctx.restore(); return;
   }
 
@@ -625,21 +662,31 @@ function traceBeam(beam, allBeams) {
   }
 
   if (c.type === 'pbs') {
-    // T = cos²(pol), R = sin²(pol)  where pol=0 is H (fully transmitted)
+    // PBS diagonal face runs at angle c.angle (degrees)
+    // Normal to the face = c.angle + 90°
+    // Transmitted beam: straight through (direction unchanged)
+    // Reflected beam: mirror reflection off the face normal
     const polRad = (beam.pol || 0) * Math.PI / 180;
-    const T = Math.cos(polRad) ** 2;
-    const R = Math.sin(polRad) ** 2;
-    // transmitted beam keeps H polarisation (pol=0)
-    const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * T }));
-    const nbT = { ...beam, x:hx, y:hy, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nbT, allBeams);
-    // reflected beam keeps V polarisation (pol=90)
-    const ang_pbs = c.angle * Math.PI / 180;
-    const nnx = -Math.sin(ang_pbs), nny = Math.cos(ang_pbs);
-    const r = reflect(beam.dx, beam.dy, nnx, nny);
-    const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * R }));
-    const nbR = { ...beam, x:hx, y:hy, dx:r.dx, dy:r.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
-    traceBeam(nbR, allBeams);
+    const T = Math.cos(polRad) ** 2;  // H pol transmits
+    const R = Math.sin(polRad) ** 2;  // V pol reflects
+
+    // normal to the PBS face
+    const normAng = (c.angle + 90) * Math.PI / 180;
+    const nnx = Math.cos(normAng), nny = Math.sin(normAng);
+
+    // transmitted: same direction, H pol
+    if (T > 0.001) {
+      const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * T }));
+      const nbT = { ...beam, x:hx, y:hy, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
+      traceBeam(nbT, allBeams);
+    }
+    // reflected: mirrored off face normal, V pol
+    if (R > 0.001) {
+      const ref = reflect(beam.dx, beam.dy, nnx, nny);
+      const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * R }));
+      const nbR = { ...beam, x:hx, y:hy, dx:ref.dx, dy:ref.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
+      traceBeam(nbR, allBeams);
+    }
     allBeams.push(beam);
     return;
   }
@@ -767,11 +814,17 @@ function drawPolMarker(seg) {
 // ═══════════════════════════════════════════════════════════════
 function render() {
   ctx.clearRect(0, 0, W, H);
+  applyVP();
 
-  // grid
-  ctx.strokeStyle = '#0d1520'; ctx.lineWidth = 0.5;
-  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  // grid (in world space)
+  ctx.strokeStyle = '#0d1520'; ctx.lineWidth = 0.5 / vp.scale;
+  const gridStep = 40;
+  const startX = Math.floor(-vp.x / vp.scale / gridStep) * gridStep;
+  const startY = Math.floor(-vp.y / vp.scale / gridStep) * gridStep;
+  const endX   = startX + W / vp.scale + gridStep;
+  const endY   = startY + H / vp.scale + gridStep;
+  for (let x = startX; x < endX; x += gridStep) { ctx.beginPath(); ctx.moveTo(x,startY); ctx.lineTo(x,endY); ctx.stroke(); }
+  for (let y = startY; y < endY; y += gridStep) { ctx.beginPath(); ctx.moveTo(startX,y); ctx.lineTo(endX,y); ctx.stroke(); }
 
   // rays
   const beams = traceRays();
@@ -837,6 +890,15 @@ function render() {
 
   // components
   for (const c of components) drawComp(c);
+
+  // reset transform before drawing HUD overlay
+  resetVP();
+
+  // zoom indicator (bottom-left of canvas)
+  ctx.font = '11px IBM Plex Mono';
+  ctx.fillStyle = '#334455';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${Math.round(vp.scale * 100)}%`, 10, H - 10);
 
   // update spectrum
   updateSpectrum(beams);
@@ -993,9 +1055,10 @@ cvsWrap.addEventListener('drop', e => {
   const type = e.dataTransfer.getData('text/plain') || dragType;
   if (!type) return;
   const rect = cvsWrap.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const c = mkComp(type, x, y);
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+  const wp = screenToWorld(sx, sy);
+  const c = mkComp(type, wp.x, wp.y);
   components.push(c);
   selected = c;
   updateProps();
@@ -1003,42 +1066,82 @@ cvsWrap.addEventListener('drop', e => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// MOUSE: select & drag components
+// MOUSE: pan canvas + drag components
 // ═══════════════════════════════════════════════════════════════
 let dragging = null, dragOff = {x:0,y:0};
+let panning  = false, panStart = {x:0,y:0}, panOrigin = {x:0,y:0};
+
+function getCanvasPos(e) {
+  const rect = cvs.getBoundingClientRect();
+  const sx = (e.clientX - rect.left) * (W / rect.width);
+  const sy = (e.clientY - rect.top)  * (H / rect.height);
+  return screenToWorld(sx, sy);
+}
 
 cvs.addEventListener('mousedown', e => {
-  const rect = cvs.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * (W / rect.width);
-  const my = (e.clientY - rect.top)  * (H / rect.height);
-  // find topmost component
+  const wp = getCanvasPos(e);
+  // find topmost component in world space
   let found = null;
   for (let i = components.length-1; i >= 0; i--) {
     const c = components[i];
-    if (Math.hypot(mx-c.x, my-c.y) < COMP_SIZE * 0.7) { found = c; break; }
+    if (Math.hypot(wp.x-c.x, wp.y-c.y) < COMP_SIZE * 0.8) { found = c; break; }
   }
   if (found) {
     selected = found;
     dragging = found;
-    dragOff = { x: mx - found.x, y: my - found.y };
+    dragOff = { x: wp.x - found.x, y: wp.y - found.y };
+    panning = false;
   } else {
     selected = null;
+    panning = true;
+    const rect = cvs.getBoundingClientRect();
+    panStart  = { x: e.clientX, y: e.clientY };
+    panOrigin = { x: vp.x, y: vp.y };
   }
   updateProps();
   render();
 });
 
 cvs.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  const rect = cvs.getBoundingClientRect();
-  const mx = (e.clientX - rect.left) * (W / rect.width);
-  const my = (e.clientY - rect.top)  * (H / rect.height);
-  dragging.x = mx - dragOff.x;
-  dragging.y = my - dragOff.y;
-  render();
+  if (dragging) {
+    const wp = getCanvasPos(e);
+    dragging.x = wp.x - dragOff.x;
+    dragging.y = wp.y - dragOff.y;
+    render();
+  } else if (panning) {
+    vp.x = panOrigin.x + (e.clientX - panStart.x);
+    vp.y = panOrigin.y + (e.clientY - panStart.y);
+    render();
+  }
 });
 
-cvs.addEventListener('mouseup', () => { dragging = null; });
+cvs.addEventListener('mouseup', () => { dragging = null; panning = false; });
+cvs.addEventListener('mouseleave', () => { dragging = null; panning = false; });
+
+// ── cursor style ──────────────────────────────────────────────
+cvs.addEventListener('mousemove', e => {
+  if (dragging || panning) return;
+  const wp = getCanvasPos(e);
+  const hit = components.some(c => Math.hypot(wp.x-c.x, wp.y-c.y) < COMP_SIZE * 0.8);
+  cvs.style.cursor = hit ? 'grab' : 'move';
+});
+
+// ── wheel zoom ────────────────────────────────────────────────
+cvs.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = cvs.getBoundingClientRect();
+  const sx = (e.clientX - rect.left) * (W / rect.width);
+  const sy = (e.clientY - rect.top)  * (H / rect.height);
+  const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const newScale = Math.max(0.15, Math.min(8, vp.scale * zoomFactor));
+  // zoom toward cursor position
+  vp.x = sx - (sx - vp.x) * (newScale / vp.scale);
+  vp.y = sy - (sy - vp.y) * (newScale / vp.scale);
+  vp.scale = newScale;
+  render();
+}, { passive: false });
+
+cvs.addEventListener('mouseup', () => { dragging = null; panning = false; });
 
 // ═══════════════════════════════════════════════════════════════
 // KEYBOARD: rotate & delete
@@ -1071,8 +1174,8 @@ function updateProps() {
   let html = `<div class="prop-row"><div class="prop-label">Type</div><div class="prop-val">${c.type.toUpperCase()}</div></div>`;
   html += propText('Label', 'label', c.label);
 
-  // Only mirror, hwp, qwp, fiberout have editable angle
-  if (['mirror','hwp','qwp','fiberout'].includes(c.type)) {
+  // Only mirror, pbs, hwp, qwp, fiberout have editable angle
+  if (['mirror','pbs','hwp','qwp','fiberout'].includes(c.type)) {
     html += propNum('Angle (deg)', 'angle', c.angle ?? 0, 0, 360, 5);
   }
 
@@ -1107,9 +1210,19 @@ function updateProps() {
     html += `</div>`;
   }
   if (c.type === 'pbs') {
-    html += `<div class="prop-section"><div class="prop-label">T/R (from beam pol)</div>`;
-    html += `<div class="prop-val" style="color:var(--beam)">Depends on incident beam</div>`;
-    html += `<div style="font-size:10px;color:var(--muted);margin-top:4px">T = cos²(θ_pol)  R = sin²(θ_pol)<br>pol=0° → 100% T &nbsp; pol=90° → 100% R<br>pol=45° → 50/50</div></div>`;
+    const faceAng = c.angle ?? 45;
+    const normAng = faceAng + 90;
+    html += `<div class="prop-section">
+      <div class="prop-label">Face angle</div>
+      <div class="prop-val" style="color:var(--beam)">${faceAng}° — reflected beam at ${normAng % 360}°</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6">
+        Face runs at <b>${faceAng}°</b>.<br>
+        Transmitted → same direction as input.<br>
+        Reflected → normal at <b>${normAng%360}°</b>.<br>
+        T = cos²(pol)，R = sin²(pol)<br>
+        pol=0° (H) → 100% T &nbsp; pol=90° (V) → 100% R
+      </div>
+    </div>`;
   }
   if (c.type === 'hwp') {
     html += propNum('Fast axis (deg)', 'fast_axis', c.fast_axis ?? 22.5, 0, 180, 0.5);
