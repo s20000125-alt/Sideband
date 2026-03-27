@@ -595,32 +595,66 @@ function intersectComp(rx, ry, dx, dy, c) {
   // All others: axis-aligned bounding box (AABB)
 
   // EOM and AOM: one-way with absorbing OUT face.
-  // c.angle defines IN→OUT axis direction.
-  // dot > 0.7  → beam entering from IN side along axis → modulate
-  // dot < -0.7 → beam approaching from OUT side → ABSORBED, beam terminates
-  // -0.7 ≤ dot ≤ 0.7 → side/oblique entry → transparent (return null)
+  // c.angle defines IN→OUT axis direction (the "long" axis of the component).
+  // We work in the component's LOCAL coordinate frame so rotation is handled correctly.
+  //
+  // Local axes:
+  //   u-axis = IN→OUT direction (along c.angle)
+  //   v-axis = perpendicular to u
+  // In local space the component is a rectangle: u ∈ [-hw, +hw], v ∈ [-hh, +hh]
+  // A beam enters from the IN face (u = -hw) and exits from the OUT face (u = +hw).
+  //
+  // Rules:
+  //   local_du > +0.7 → coming from IN side → modulate
+  //   local_du < -0.7 → coming from OUT side → ABSORB / blocked
+  //   |local_du| ≤ 0.7 → side entry → transparent (return null)
   if (c.type === 'eom' || c.type === 'aom') {
     const axAng = (c.angle || 0) * Math.PI / 180;
-    const axDx = Math.cos(axAng), axDy = Math.sin(axAng);
-    const dot = dx * axDx + dy * axDy;
+    // Unit vectors of local u (IN→OUT) and v (perpendicular) axes in world space
+    const uX = Math.cos(axAng), uY = Math.sin(axAng);
+    const vX = -uY,             vY =  uX;
 
-    if (dot > -0.7 && dot < 0.7) return null; // side/oblique → transparent
+    // Project beam direction onto local axes
+    const local_du = dx * uX + dy * uY;  // component of beam along IN→OUT
+    const local_dv = dx * vX + dy * vY;  // component along perpendicular
 
-    // Need AABB hit distance for both forward and blocked cases
-    const hw2 = (COMP_W[c.type] || COMP_SIZE) / 2;
-    const hh2 = COMP_SIZE / 2;
-    const bx1 = c.x - hw2, bx2 = c.x + hw2;
-    const by1 = c.y - hh2, by2 = c.y + hh2;
-    let btmin = -Infinity, btmax = Infinity;
-    if (Math.abs(dx) < 1e-10) { if (rx < bx1 || rx > bx2) return null; }
-    else { const t1=(bx1-rx)/dx, t2=(bx2-rx)/dx; btmin=Math.max(btmin,Math.min(t1,t2)); btmax=Math.min(btmax,Math.max(t1,t2)); }
-    if (Math.abs(dy) < 1e-10) { if (ry < by1 || ry > by2) return null; }
-    else { const t1=(by1-ry)/dy, t2=(by2-ry)/dy; btmin=Math.max(btmin,Math.min(t1,t2)); btmax=Math.min(btmax,Math.max(t1,t2)); }
-    if (btmax < btmin || btmax < 1) return null;
-    const bt = btmin > 1 ? btmin : btmax;
+    if (local_du > -0.7 && local_du < 0.7) return null; // side/oblique → transparent
+
+    // Project ray origin (relative to component centre) onto local axes
+    const relX = rx - c.x, relY = ry - c.y;
+    const local_ru = relX * uX + relY * uY;
+    const local_rv = relX * vX + relY * vY;
+
+    // Component half-extents in local space
+    const hw2 = (COMP_W[c.type] || COMP_SIZE) / 2;  // half-length along u (IN→OUT)
+    const hh2 = COMP_SIZE / 2;                        // half-width along v
+
+    // Slab intersection in local u coordinate
+    let tmin = -Infinity, tmax = Infinity;
+    if (Math.abs(local_du) < 1e-10) {
+      if (local_ru < -hw2 || local_ru > hw2) return null;
+    } else {
+      const t1 = (-hw2 - local_ru) / local_du;
+      const t2 = ( hw2 - local_ru) / local_du;
+      tmin = Math.max(tmin, Math.min(t1, t2));
+      tmax = Math.min(tmax, Math.max(t1, t2));
+    }
+
+    // Slab intersection in local v coordinate
+    if (Math.abs(local_dv) < 1e-10) {
+      if (local_rv < -hh2 || local_rv > hh2) return null;
+    } else {
+      const t1 = (-hh2 - local_rv) / local_dv;
+      const t2 = ( hh2 - local_rv) / local_dv;
+      tmin = Math.max(tmin, Math.min(t1, t2));
+      tmax = Math.min(tmax, Math.max(t1, t2));
+    }
+
+    if (tmax < tmin || tmax < 1) return null;
+    const bt = tmin > 1 ? tmin : tmax;
     if (bt < 1) return null;
 
-    if (dot < 0) return { t: bt, nx: 0, ny: 0, blocked: true }; // OUT face → absorb
+    if (local_du < 0) return { t: bt, nx: 0, ny: 0, blocked: true }; // OUT face → absorb
     return { t: bt, nx: 0, ny: 0 }; // correct IN→OUT → modulate
   }
 
@@ -764,8 +798,8 @@ function traceBeam(beam, allBeams, excludeComp) {
   if (c.type === 'pbs') {
     // PBS diagonal face runs at angle c.angle (degrees)
     // Normal to the face = c.angle + 90°
-    // Transmitted beam: straight through (direction unchanged)
-    // Reflected beam: mirror reflection off the face normal
+    // Both transmitted and reflected beams originate from the PBS centre (c.x, c.y)
+    // so the split point is always the centre of the cube regardless of entry face.
     const polRad = (beam.pol || 0) * Math.PI / 180;
     const T = Math.cos(polRad) ** 2;  // H pol transmits
     const R = Math.sin(polRad) ** 2;  // V pol reflects
@@ -774,18 +808,17 @@ function traceBeam(beam, allBeams, excludeComp) {
     const normAng = (c.angle + 90) * Math.PI / 180;
     const nnx = Math.cos(normAng), nny = Math.sin(normAng);
 
-    // transmitted: same direction, H pol
+    // transmitted: same direction from centre, H pol
     if (T > 0.001) {
       const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * T }));
-      const nbT = { ...beam, x:ox, y:oy, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
+      const nbT = { ...beam, x: c.x + beam.dx * PUSH, y: c.y + beam.dy * PUSH, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
       traceBeam(nbT, allBeams, c);
     }
-    // reflected: push along reflected direction
+    // reflected: reflection direction from centre, V pol
     if (R > 0.001) {
       const ref = reflect(beam.dx, beam.dy, nnx, nny);
-      const rx2 = hx + ref.dx * PUSH, ry2 = hy + ref.dy * PUSH;
       const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * R }));
-      const nbR = { ...beam, x:rx2, y:ry2, dx:ref.dx, dy:ref.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
+      const nbR = { ...beam, x: c.x + ref.dx * PUSH, y: c.y + ref.dy * PUSH, dx:ref.dx, dy:ref.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
       traceBeam(nbR, allBeams, c);
     }
     allBeams.push(beam);
