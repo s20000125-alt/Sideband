@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>OpticSim — Laser Optical Path Designer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600&family=Syne:wght@400;700;800&display=swap');
+:root {
+  --bg:#07090e; --panel:#0c1018; --panel2:#111620; --border:#1c2535;
+  --beam:#00e5ff; --beam-glow:rgba(0,229,255,.3);
+  --red:#ff4466; --green:#39d98a; --gold:#ffc94d; --purple:#b48eff;
+  --text:#cdd9e5; --muted:#445566; --white:#e8f0f8;
+  --laser-col:#ff3355; --mirror-col:#88aacc; --pbs-col:#44aaff;
+  --eom-col:#ff9944; --aom-col:#44dd88; --wp-col:#cc88ff;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'IBM Plex Mono',monospace;color:var(--text)}
+
+/* ── LAYOUT ── */
+#app{display:grid;grid-template-columns:200px 1fr 260px;grid-template-rows:44px 1fr 180px;height:100vh}
+#topbar{grid-column:1/4;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px}
+#topbar h1{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--beam);letter-spacing:.06em;text-transform:uppercase}
+#topbar .sub{font-size:13px;color:var(--muted)}
+.tbtn{background:none;border:1px solid var(--border);color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:5px 14px;cursor:pointer;border-radius:2px;transition:all .15s}
+.tbtn:hover{border-color:var(--beam);color:var(--beam)}
+.tbtn.danger:hover{border-color:var(--red);color:var(--red)}
+#topbar .spacer{flex:1}
+
+/* ── SIDEBAR LEFT (palette) ── */
+#palette{grid-column:1;grid-row:2/4;background:var(--panel);border-right:1px solid var(--border);padding:12px 8px;overflow-y:auto}
+#palette h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:10px 4px 6px}
+.comp-item{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:3px;cursor:grab;border:1px solid transparent;transition:all .15s;margin-bottom:3px;user-select:none}
+.comp-item:hover{background:var(--panel2);border-color:var(--border)}
+.comp-item:active{cursor:grabbing}
+.comp-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:3px;flex-shrink:0;font-size:14px}
+.comp-label{font-size:13px;color:var(--text);font-weight:600}
+.comp-sub{font-size:10px;color:var(--muted)}
+
+/* ── CANVAS ── */
+#canvas-wrap{grid-column:2;grid-row:2;position:relative;overflow:hidden;background:var(--bg)}
+#canvas-wrap canvas{display:block;width:100%;height:100%}
+
+/* ── RIGHT PANEL (properties) ── */
+#props{grid-column:3;grid-row:2;background:var(--panel);border-left:1px solid var(--border);padding:14px;overflow-y:auto}
+#props h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:10px}
+.prop-row{margin-bottom:10px}
+.prop-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.prop-val{font-size:14px;color:var(--white);font-weight:600}
+.prop-input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--white);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:5px 8px;border-radius:2px;outline:none}
+.prop-input:focus{border-color:var(--beam)}
+.prop-slider{width:100%;accent-color:var(--beam);margin-top:3px}
+.del-btn{width:100%;background:none;border:1px solid var(--border);color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:10px;padding:6px;cursor:pointer;border-radius:2px;margin-top:12px;transition:all .15s}
+.del-btn:hover{background:rgba(255,68,102,.1);border-color:var(--red)}
+.no-sel{color:var(--muted);font-size:10px;line-height:1.7;padding-top:4px}
+.prop-section{border-top:1px solid var(--border);margin-top:12px;padding-top:12px}
+
+/* ── BOTTOM: freq output ── */
+#freqbar{grid-column:2/4;grid-row:3;background:var(--panel);border-top:1px solid var(--border);display:flex;gap:0}
+#spectrum-wrap{flex:1;padding:10px 14px;overflow:hidden}
+#spectrum-wrap h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+#spec-canvas{display:block;width:100%;height:110px}
+#freq-list{width:260px;border-left:1px solid var(--border);padding:10px 14px;overflow-y:auto}
+#freq-list h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+.freq-entry{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.fdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.fname{font-size:11px;color:var(--text);flex:1}
+.fval{font-size:11px;color:var(--muted)}
+.fpower{font-size:11px;color:var(--gold)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- topbar -->
+<div id="topbar">
+  <h1>OpticSim</h1>
+  <span class="sub">/ Laser Path Designer</span>
+  <div class="spacer"></div>
+  <button class="tbtn" onclick="loadExample()">Load Example</button>
+  <button class="tbtn danger" onclick="clearAll()">Clear All</button>
+  <span style="font-size:11px;color:var(--muted);margin-left:8px">Drag components onto canvas · Click to select · R = rotate · Del = delete</span>
+</div>
+
+<!-- palette -->
+<div id="palette">
+  <h2>Sources</h2>
+  <div class="comp-item" draggable="true" data-type="laser">
+    <div class="comp-icon" style="background:rgba(255,51,85,.2);color:#ff3355">⬡</div>
+    <div><div class="comp-label">Laser</div><div class="comp-sub">Point source</div></div>
+  </div>
+  <h2>Modulators</h2>
+  <div class="comp-item" draggable="true" data-type="aom">
+    <div class="comp-icon" style="background:rgba(68,221,136,.2);color:#44dd88">AO</div>
+    <div><div class="comp-label">AOM</div><div class="comp-sub">Freq shift</div></div>
+  </div>
+  <div class="comp-item" draggable="true" data-type="eom">
+    <div class="comp-icon" style="background:rgba(255,153,68,.2);color:#ff9944">EO</div>
+    <div><div class="comp-label">EOM</div><div class="comp-sub">Sidebands</div></div>
+  </div>
+  <h2>Optics</h2>
+  <div class="comp-item" draggable="true" data-type="mirror">
+    <div class="comp-icon" style="background:rgba(136,170,204,.2);color:#88aacc">◫</div>
+    <div><div class="comp-label">Mirror</div><div class="comp-sub">Reflect beam</div></div>
+  </div>
+  <div class="comp-item" draggable="true" data-type="pbs">
+    <div class="comp-icon" style="background:rgba(68,170,255,.2);color:#44aaff">PBS</div>
+    <div><div class="comp-label">PBS</div><div class="comp-sub">Split/combine</div></div>
+  </div>
+  <div class="comp-item" draggable="true" data-type="hwp">
+    <div class="comp-icon" style="background:rgba(204,136,255,.2);color:#cc88ff">λ/2</div>
+    <div><div class="comp-label">HWP</div><div class="comp-sub">Half-wave plate</div></div>
+  </div>
+  <div class="comp-item" draggable="true" data-type="qwp">
+    <div class="comp-icon" style="background:rgba(204,136,255,.15);color:#bb77ee">λ/4</div>
+    <div><div class="comp-label">QWP</div><div class="comp-sub">Quarter-wave</div></div>
+  </div>
+  <div class="comp-item" draggable="true" data-type="dump">
+    <div class="comp-icon" style="background:rgba(80,80,80,.3);color:#667788">■</div>
+    <div><div class="comp-label">Beam Dump</div><div class="comp-sub">Terminate</div></div>
+  </div>
+  <h2>Info</h2>
+  <div style="font-size:11px;color:var(--muted);line-height:1.8;padding:0 4px">
+    • Drag to place<br>
+    • Click to select<br>
+    • R key: rotate 45°<br>
+    • Delete/Backspace: remove<br>
+    • Mirror reflects beam<br>
+    • PBS splits H/V
+  </div>
+</div>
+
+<!-- canvas -->
+<div id="canvas-wrap">
+  <canvas id="main-canvas"></canvas>
+</div>
+
+<!-- right props -->
+<div id="props">
+  <h2>Properties</h2>
+  <div id="prop-content">
+    <p class="no-sel">Click a component to edit its properties.</p>
+  </div>
+</div>
+
+<!-- bottom freq output -->
+<div id="freqbar">
+  <div id="spectrum-wrap">
+    <h3>Frequency Spectrum — Output</h3>
+    <canvas id="spec-canvas"></canvas>
+  </div>
+  <div id="freq-list">
+    <h3>Frequencies</h3>
+    <div id="freq-entries"><span style="font-size:9px;color:var(--muted)">No output yet</span></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════════════════════
+const wrap = document.getElementById('canvas-wrap');
+const cvs  = document.getElementById('main-canvas');
+const ctx  = cvs.getContext('2d');
+let W, H;
+
+function resize() {
+  const r = wrap.getBoundingClientRect();
+  W = cvs.width  = r.width;
+  H = cvs.height = r.height;
+  cvs.style.width  = r.width  + 'px';
+  cvs.style.height = r.height + 'px';
+  render();
+}
+window.addEventListener('resize', resize);
+
+// ═══════════════════════════════════════════════════════════════
+// COMPONENT DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+let components = [];
+let selected = null;
+let nextId = 1;
+
+const COMP_SIZE = 36;
+
+function mkComp(type, x, y) {
+  const base = { id: nextId++, type, x, y, angle: 0 };
+  if (type === 'laser')  return { ...base, wavelength: 680, power: 1.0, label:'Laser' };
+  if (type === 'aom')    return { ...base, freq: 200, order: 1, passes: 2, label:'AOM' };
+  if (type === 'eom')    return { ...base, rf: 4.696, beta: 1.435, label:'EOM' };
+  if (type === 'mirror') return { ...base, angle: 45, reflectivity: 1.0, label:'Mirror' };
+  if (type === 'pbs')    return { ...base, angle: 45, ratio: 0.5, label:'PBS' };
+  if (type === 'hwp')    return { ...base, fast_axis: 0, label:'HWP' };
+  if (type === 'qwp')    return { ...base, fast_axis: 0, label:'QWP' };
+  if (type === 'dump')   return { ...base, label:'Dump' };
+  return base;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAWING COMPONENTS
+// ═══════════════════════════════════════════════════════════════
+const TYPE_STYLE = {
+  laser:  { bg:'#1a0a10', stroke:'#ff3355', glow:'rgba(255,51,85,.5)'  },
+  aom:    { bg:'#081a10', stroke:'#44dd88', glow:'rgba(68,221,136,.4)' },
+  eom:    { bg:'#1a100a', stroke:'#ff9944', glow:'rgba(255,153,68,.4)' },
+  mirror: { bg:'#0a1018', stroke:'#88aacc', glow:'rgba(136,170,204,.3)'},
+  pbs:    { bg:'#080e1a', stroke:'#44aaff', glow:'rgba(68,170,255,.4)' },
+  hwp:    { bg:'#100a1a', stroke:'#cc88ff', glow:'rgba(204,136,255,.4)'},
+  qwp:    { bg:'#0e091a', stroke:'#bb77ee', glow:'rgba(187,119,238,.3)'},
+  dump:   { bg:'#101010', stroke:'#445566', glow:'rgba(68,85,102,.3)'  },
+};
+
+const TYPE_ICON = {
+  laser:'⬡', aom:'AO', eom:'EO', mirror:'◫', pbs:'PBS', hwp:'λ/2', qwp:'λ/4', dump:'■'
+};
+
+function drawComp(c) {
+  const st = TYPE_STYLE[c.type] || TYPE_STYLE.dump;
+  const s = COMP_SIZE;
+  ctx.save();
+  ctx.translate(c.x, c.y);
+
+  // special draw for mirror
+  if (c.type === 'mirror') {
+    ctx.rotate((c.angle) * Math.PI / 180);
+    // mirror line
+    if (c === selected) {
+      ctx.shadowColor = st.glow; ctx.shadowBlur = 16;
+    }
+    ctx.beginPath(); ctx.moveTo(-s/2, 0); ctx.lineTo(s/2, 0);
+    ctx.strokeStyle = st.stroke; ctx.lineWidth = 4; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s/2, 2); ctx.lineTo(s/2, 2);
+    ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.shadowBlur = 0;
+    // label
+    ctx.rotate(-(c.angle) * Math.PI / 180);
+    ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'bb';
+    ctx.textAlign = 'center'; ctx.fillText(c.label, 0, -s/2+2);
+    ctx.restore(); return;
+  }
+
+  // PBS: square with diagonal
+  if (c.type === 'pbs') {
+    ctx.rotate((c.angle - 45) * Math.PI / 180);
+    if (c === selected) { ctx.shadowColor = st.glow; ctx.shadowBlur = 18; }
+    ctx.beginPath(); ctx.rect(-s/2, -s/2, s, s);
+    ctx.fillStyle = st.bg; ctx.fill();
+    ctx.strokeStyle = st.stroke; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s/2, s/2); ctx.lineTo(s/2, -s/2);
+    ctx.strokeStyle = st.stroke+'cc'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.rotate(-(c.angle - 45) * Math.PI / 180);
+    ctx.font = '800 11px IBM Plex Mono'; ctx.fillStyle = st.stroke;
+    ctx.textAlign = 'center'; ctx.fillText('PBS', 0, 3);
+    ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
+    ctx.fillText(c.label !== 'PBS' ? c.label : '', 0, -s/2-4);
+    ctx.restore(); return;
+  }
+
+  // Default: rounded rect
+  if (c === selected) { ctx.shadowColor = st.glow; ctx.shadowBlur = 18; }
+  ctx.beginPath(); ctx.roundRect(-s/2, -s/2, s, s, 4);
+  ctx.fillStyle = st.bg; ctx.fill();
+  ctx.strokeStyle = st.stroke; ctx.lineWidth = c === selected ? 2 : 1.5; ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // icon
+  ctx.font = `${c.type==='laser'?'16':'800 10'}px IBM Plex Mono`;
+  ctx.fillStyle = st.stroke;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(TYPE_ICON[c.type], 0, c.type==='laser'?1:0);
+  ctx.textBaseline = 'alphabetic';
+
+  // label below
+  ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
+  ctx.fillText(c.label, 0, s/2 + 12);
+
+  // laser direction arrow
+  if (c.type === 'laser') {
+    const ang = c.angle * Math.PI / 180;
+    ctx.beginPath();
+    ctx.moveTo(s/2 + 4, 0);
+    ctx.lineTo(s/2 + 14, 0);
+    ctx.strokeStyle = '#ff3355cc'; ctx.lineWidth = 2;
+    ctx.stroke();
+    // arrowhead
+    ctx.beginPath();
+    ctx.moveTo(s/2+14, 0);
+    ctx.lineTo(s/2+10, -3); ctx.lineTo(s/2+10, 3); ctx.closePath();
+    ctx.fillStyle = '#ff3355cc'; ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RAY TRACING ENGINE
+// ═══════════════════════════════════════════════════════════════
+const MAX_BOUNCES = 24;
+const MAX_DIST    = 5000;
+
+// A "beam" = { x, y, dx, dy, freqs: [{f_GHz, power, color, label}], pol }
+// freqs relative to laser base (GHz offset)
+
+function traceRays() {
+  const lasers = components.filter(c => c.type === 'laser');
+  const beams = [];
+
+  for (const laser of lasers) {
+    const ang = laser.angle * Math.PI / 180;
+    const initBeam = {
+      x: laser.x, y: laser.y,
+      dx: Math.cos(ang), dy: Math.sin(ang),
+      freqs: [{ f: 0, power: laser.power || 1.0, color: wavelengthColor(laser.wavelength || 680), label: 'carrier' }],
+      wavelength: laser.wavelength || 680,
+      bounces: 0,
+      segments: [],
+    };
+    traceBeam(initBeam, beams);
+  }
+  return beams;
+}
+
+function wavelengthColor(wl) {
+  if (wl < 400) return '#cc44ff';
+  if (wl < 450) return '#7744ff';
+  if (wl < 490) return '#4488ff';
+  if (wl < 510) return '#44ddff';
+  if (wl < 560) return '#44ff88';
+  if (wl < 590) return '#aaff44';
+  if (wl < 625) return '#ffdd44';
+  if (wl < 700) return '#ff4455';
+  return '#cc2233';
+}
+
+function hitTest(x, y, dx, dy, exclude) {
+  // returns { comp, t, nx, ny } of nearest hit
+  let best = null, bestT = MAX_DIST;
+  for (const c of components) {
+    if (c === exclude) continue;
+    const hit = intersectComp(x, y, dx, dy, c);
+    if (hit && hit.t > 0.5 && hit.t < bestT) {
+      bestT = hit.t; best = { comp: c, t: hit.t, nx: hit.nx, ny: hit.ny };
+    }
+  }
+  return best;
+}
+
+function intersectComp(rx, ry, dx, dy, c) {
+  // For mirror: line intersection
+  if (c.type === 'mirror') {
+    const ang = c.angle * Math.PI / 180;
+    const mx = Math.cos(ang), my = Math.sin(ang);
+    const hs = COMP_SIZE / 2;
+    const ex1 = c.x - mx*hs, ey1 = c.y - my*hs;
+    const ex2 = c.x + mx*hs, ey2 = c.y + my*hs;
+    const hit = lineLineIntersect(rx,ry,dx,dy, ex1,ey1,ex2-ex1,ey2-ey1);
+    if (!hit) return null;
+    // normal to mirror (perpendicular to mirror line)
+    const nx = -my, ny = mx; // or +my,-mx; choose facing toward ray
+    return { t: hit.t, nx, ny };
+  }
+  // For all others: circle hit test
+  const hs = COMP_SIZE * 0.52;
+  const ex = c.x - rx, ey = c.y - ry;
+  const a = dx*dx + dy*dy;
+  const b = 2*(dx*ex + dy*ey); // note: ex = c.x-rx, not rx-c.x
+  // wait: ray = (rx+t*dx, ry+t*dy), dist to c:
+  // (rx+t*dx - c.x)^2 + (ry+t*dy - c.y)^2 = hs^2
+  const cx2 = rx - c.x, cy2 = ry - c.y;
+  const b2 = 2*(dx*cx2 + dy*cy2);
+  const cc = cx2*cx2 + cy2*cy2 - hs*hs;
+  const disc = b2*b2 - 4*a*cc;
+  if (disc < 0) return null;
+  const t = (-b2 - Math.sqrt(disc)) / (2*a);
+  if (t < 0.5) return null;
+  const hx = rx + t*dx - c.x, hy = ry + t*dy - c.y;
+  const len = Math.hypot(hx, hy);
+  return { t, nx: hx/len, ny: hy/len };
+}
+
+function lineLineIntersect(rx,ry,dx,dy, ex,ey,fx,fy) {
+  // ray: P = (rx,ry) + t*(dx,dy)
+  // seg: Q = (ex,ey) + s*(fx,fy)
+  const denom = dx*fy - dy*fx;
+  if (Math.abs(denom) < 1e-10) return null;
+  const t = ((ex-rx)*fy - (ey-ry)*fx) / denom;
+  const s = ((ex-rx)*dy - (ey-ry)*dx) / denom;
+  if (s < 0 || s > 1) return null;
+  return { t };
+}
+
+function reflect(dx, dy, nx, ny) {
+  const dot = dx*nx + dy*ny;
+  return { dx: dx - 2*dot*nx, dy: dy - 2*dot*ny };
+}
+
+function traceBeam(beam, allBeams) {
+  if (beam.bounces > MAX_BOUNCES) return;
+  const hit = hitTest(beam.x, beam.y, beam.dx, beam.dy, null);
+  if (!hit) {
+    // goes to edge
+    const ex = beam.x + beam.dx * MAX_DIST;
+    const ey = beam.y + beam.dy * MAX_DIST;
+    beam.segments.push({ x1:beam.x, y1:beam.y, x2:ex, y2:ey, freqs:beam.freqs });
+    allBeams.push(beam);
+    return;
+  }
+
+  const hx = beam.x + beam.dx * hit.t;
+  const hy = beam.y + beam.dy * hit.t;
+  beam.segments.push({ x1:beam.x, y1:beam.y, x2:hx, y2:hy, freqs: beam.freqs });
+
+  const c = hit.comp;
+
+  if (c.type === 'dump') { allBeams.push(beam); return; }
+
+  if (c.type === 'mirror') {
+    const r = reflect(beam.dx, beam.dy, hit.nx, hit.ny);
+    const nb = { ...beam, x:hx, y:hy, dx:r.dx, dy:r.dy, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nb, allBeams);
+    allBeams.push(beam);
+    return;
+  }
+
+  if (c.type === 'aom') {
+    // freq shift: order * freq_MHz / 1000 GHz, passes times
+    const shift = c.order * (c.freq / 1000) * c.passes;
+    const newFreqs = beam.freqs.map(f => ({ ...f, f: f.f + shift }));
+    const nb = { ...beam, x:hx, y:hy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nb, allBeams);
+    allBeams.push(beam);
+    return;
+  }
+
+  if (c.type === 'eom') {
+    // EOM: carrier + sidebands using Bessel functions
+    const beta = c.beta || 1.435;
+    const rf   = c.rf   || 4.696; // GHz
+    const newFreqs = [];
+    // J_n(beta) sidebands at n*rf
+    for (let n = -4; n <= 4; n++) {
+      const jn = besselJ(Math.abs(n), beta);
+      const power_frac = jn * jn;
+      if (power_frac < 0.001) continue;
+      for (const f of beam.freqs) {
+        newFreqs.push({
+          f: f.f + n * rf,
+          power: f.power * power_frac,
+          color: n === 0 ? f.color : (n > 0 ? '#ffaa44' : '#44aaff'),
+          label: n === 0 ? f.label : (n > 0 ? `+${n}sb` : `${n}sb`)
+        });
+      }
+    }
+    const nb = { ...beam, x:hx, y:hy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nb, allBeams);
+    allBeams.push(beam);
+    return;
+  }
+
+  if (c.type === 'pbs') {
+    // transmitted beam (H) and reflected beam (V)
+    // reflect is 90 degrees from incidence
+    // For PBS, split ratio
+    const ratio = c.ratio || 0.5;
+    // transmitted
+    const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * ratio }));
+    const nbT = { ...beam, x:hx, y:hy, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nbT, allBeams);
+    // reflected: perpendicular
+    const ang_pbs = c.angle * Math.PI / 180; // PBS diagonal angle
+    const nx = Math.cos(ang_pbs), ny = Math.sin(ang_pbs); // along diagonal
+    // normal to diagonal
+    const nnx = -Math.sin(ang_pbs), nny = Math.cos(ang_pbs);
+    const r = reflect(beam.dx, beam.dy, nnx, nny);
+    const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * (1-ratio) }));
+    const nbR = { ...beam, x:hx, y:hy, dx:r.dx, dy:r.dy, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nbR, allBeams);
+    allBeams.push(beam);
+    return;
+  }
+
+  // hwp/qwp: pass through, maybe color change
+  const nb = { ...beam, x:hx, y:hy, bounces:beam.bounces+1, segments:[] };
+  traceBeam(nb, allBeams);
+  allBeams.push(beam);
+}
+
+// Bessel J_n(x) approximation
+function besselJ(n, x) {
+  if (n === 0) {
+    // J0
+    let s = 0, t = 1;
+    for (let k = 1; k <= 20; k++) {
+      t *= -(x/2)*(x/2) / (k*k);
+      s += t;
+    }
+    return 1 + s;
+  }
+  // J_n via recurrence is complex; use series
+  let sum = 0;
+  for (let k = 0; k <= 15; k++) {
+    const num = Math.pow(-1, k) * Math.pow(x/2, n + 2*k);
+    const den = factorial(k) * factorial(n+k);
+    sum += num / den;
+  }
+  return sum;
+}
+function factorial(n) { let r=1; for(let i=2;i<=n;i++) r*=i; return r; }
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // grid
+  ctx.strokeStyle = '#0d1520'; ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // rays
+  const beams = traceRays();
+  for (const beam of beams) {
+    for (const seg of beam.segments) {
+      if (!seg.freqs || seg.freqs.length === 0) continue;
+      // pick dominant color
+      const domFreq = seg.freqs.reduce((a,b)=>a.power>b.power?a:b);
+      const col = domFreq.color;
+      const totalPow = seg.freqs.reduce((s,f)=>s+f.power,0);
+      const alpha = Math.min(1, totalPow * 0.9 + 0.1);
+
+      ctx.save();
+      ctx.shadowColor = col; ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(seg.x1, seg.y1);
+      ctx.lineTo(seg.x2, seg.y2);
+      ctx.strokeStyle = col + Math.floor(alpha * 255).toString(16).padStart(2,'0');
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // if multiple freqs, draw thin lines alongside
+      if (seg.freqs.length > 1) {
+        seg.freqs.forEach((f, i) => {
+          if (f.power < 0.01) return;
+          const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1;
+          const len = Math.hypot(dx, dy);
+          const px = -dy/len * (i - seg.freqs.length/2) * 2.5;
+          const py =  dx/len * (i - seg.freqs.length/2) * 2.5;
+          ctx.beginPath();
+          ctx.moveTo(seg.x1+px, seg.y1+py);
+          ctx.lineTo(seg.x2+px, seg.y2+py);
+          ctx.strokeStyle = f.color + Math.floor(f.power * 180).toString(16).padStart(2,'0');
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
+    }
+  }
+
+  // components
+  for (const c of components) drawComp(c);
+
+  // update spectrum
+  updateSpectrum(beams);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPECTRUM
+// ═══════════════════════════════════════════════════════════════
+function updateSpectrum(beams) {
+  // collect all output frequencies (last segment of each beam)
+  const allFreqs = [];
+  for (const beam of beams) {
+    const last = beam.segments[beam.segments.length - 1];
+    if (!last) continue;
+    for (const f of last.freqs) {
+      if (f.power < 0.005) continue;
+      allFreqs.push(f);
+    }
+  }
+
+  // draw spectrum canvas
+  const sc = document.getElementById('spec-canvas');
+  const r = sc.parentElement.getBoundingClientRect();
+  sc.width  = r.width  - 28;
+  sc.height = 110;
+  const sctx = sc.getContext('2d');
+  sctx.clearRect(0, 0, sc.width, sc.height);
+  sctx.fillStyle = '#070910';
+  sctx.fillRect(0, 0, sc.width, sc.height);
+
+  if (allFreqs.length === 0) {
+    sctx.fillStyle = '#445566'; sctx.font = '12px IBM Plex Mono';
+    sctx.textAlign = 'center';
+    sctx.fillText('Place a Laser and components to see output spectrum', sc.width/2, 55);
+  } else {
+    const minF = Math.min(...allFreqs.map(f=>f.f)) - 1;
+    const maxF = Math.max(...allFreqs.map(f=>f.f)) + 1;
+    const range = Math.max(maxF - minF, 1);
+    const maxP  = Math.max(...allFreqs.map(f=>f.power));
+
+    // axis
+    sctx.strokeStyle = '#1c2535'; sctx.lineWidth = 1;
+    sctx.beginPath(); sctx.moveTo(32, 90); sctx.lineTo(sc.width-8, 90); sctx.stroke();
+
+    // bars
+    allFreqs.forEach(f => {
+      const xp = 32 + ((f.f - minF) / range) * (sc.width - 40);
+      const yp = 90 - (f.power / maxP) * 70;
+      sctx.save();
+      sctx.shadowColor = f.color; sctx.shadowBlur = 6;
+      sctx.strokeStyle = f.color; sctx.lineWidth = 3;
+      sctx.beginPath(); sctx.moveTo(xp, 90); sctx.lineTo(xp, yp); sctx.stroke();
+      sctx.shadowBlur = 0;
+      sctx.restore();
+      // freq label
+      sctx.fillStyle = f.color + 'cc'; sctx.font = '9px IBM Plex Mono';
+      sctx.textAlign = 'center';
+      const label = f.f >= 0 ? `+${f.f.toFixed(2)}` : `${f.f.toFixed(2)}`;
+      sctx.fillText(label, xp, 88);
+      sctx.fillText('GHz', xp, 98);
+    });
+
+    // axis label
+    sctx.fillStyle = '#445566'; sctx.font = '10px IBM Plex Mono';
+    sctx.textAlign = 'left';
+    sctx.fillText('Δf (GHz rel. to carrier)', 32, 108);
+  }
+
+  // freq list
+  const el = document.getElementById('freq-entries');
+  if (allFreqs.length === 0) {
+    el.innerHTML = '<span style="font-size:9px;color:var(--muted)">No output yet</span>';
+  } else {
+    // deduplicate and sort by power
+    const sorted = [...allFreqs].sort((a,b) => b.power - a.power).slice(0, 12);
+    el.innerHTML = sorted.map(f => `
+      <div class="freq-entry">
+        <div class="fdot" style="background:${f.color}"></div>
+        <div class="fname">${f.label} ${f.f>=0?'+':''}${f.f.toFixed(3)} GHz</div>
+        <div class="fpower">${(f.power*100).toFixed(1)}%</div>
+      </div>`).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAG & DROP — palette to canvas
+// ═══════════════════════════════════════════════════════════════
+let dragType = null;
+document.querySelectorAll('.comp-item[draggable]').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    dragType = el.dataset.type;
+    e.dataTransfer.setData('text/plain', dragType);
+  });
+});
+const cvsWrap = document.getElementById('canvas-wrap');
+cvsWrap.addEventListener('dragover', e => e.preventDefault());
+cvsWrap.addEventListener('drop', e => {
+  e.preventDefault();
+  const type = e.dataTransfer.getData('text/plain') || dragType;
+  if (!type) return;
+  const rect = cvsWrap.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const c = mkComp(type, x, y);
+  components.push(c);
+  selected = c;
+  updateProps();
+  render();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MOUSE: select & drag components
+// ═══════════════════════════════════════════════════════════════
+let dragging = null, dragOff = {x:0,y:0};
+
+cvs.addEventListener('mousedown', e => {
+  const rect = cvs.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top)  * (H / rect.height);
+  // find topmost component
+  let found = null;
+  for (let i = components.length-1; i >= 0; i--) {
+    const c = components[i];
+    if (Math.hypot(mx-c.x, my-c.y) < COMP_SIZE * 0.7) { found = c; break; }
+  }
+  if (found) {
+    selected = found;
+    dragging = found;
+    dragOff = { x: mx - found.x, y: my - found.y };
+  } else {
+    selected = null;
+  }
+  updateProps();
+  render();
+});
+
+cvs.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const rect = cvs.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top)  * (H / rect.height);
+  dragging.x = mx - dragOff.x;
+  dragging.y = my - dragOff.y;
+  render();
+});
+
+cvs.addEventListener('mouseup', () => { dragging = null; });
+
+// ═══════════════════════════════════════════════════════════════
+// KEYBOARD: rotate & delete
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('keydown', e => {
+  if (!selected) return;
+  if (e.key === 'r' || e.key === 'R') {
+    selected.angle = ((selected.angle || 0) + 45) % 360;
+    render();
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    const inp = document.activeElement;
+    if (inp && (inp.tagName === 'INPUT' || inp.tagName === 'TEXTAREA')) return;
+    components = components.filter(c => c !== selected);
+    selected = null;
+    updateProps(); render();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PROPERTIES PANEL
+// ═══════════════════════════════════════════════════════════════
+function updateProps() {
+  const el = document.getElementById('prop-content');
+  if (!selected) {
+    el.innerHTML = '<p class="no-sel">Click a component to edit its properties.</p>';
+    return;
+  }
+  const c = selected;
+  let html = `<div class="prop-row"><div class="prop-label">Type</div><div class="prop-val">${c.type.toUpperCase()}</div></div>`;
+  html += propText('Label', 'label', c.label);
+  html += propNum('Angle (deg)', 'angle', c.angle, 0, 360, 5);
+
+  if (c.type === 'laser') {
+    html += propNum('Wavelength (nm)', 'wavelength', c.wavelength, 200, 1100, 1);
+    html += propNum('Power', 'power', c.power, 0.1, 10, 0.1);
+  }
+  if (c.type === 'aom') {
+    html += propNum('RF Freq (MHz)', 'freq', c.freq, 20, 400, 1);
+    html += propNum('Order (±1)', 'order', c.order, -2, 2, 1);
+    html += propNum('Passes', 'passes', c.passes, 1, 4, 1);
+    const shift = c.order * c.freq * c.passes / 1000;
+    html += `<div class="prop-section"><div class="prop-label">Freq Shift</div><div class="prop-val" style="color:var(--green)">${shift >= 0?'+':''}${shift.toFixed(3)} GHz</div></div>`;
+  }
+  if (c.type === 'eom') {
+    html += propNum('RF (GHz)', 'rf', c.rf, 0.1, 20, 0.001);
+    html += propNum('β (mod index)', 'beta', c.beta, 0.1, 3.0, 0.01);
+    html += `<div class="prop-section"><div class="prop-label">Sidebands</div>`;
+    for (let n = -3; n <= 3; n++) {
+      const jn = besselJ(Math.abs(n), c.beta);
+      const pw = (jn*jn*100).toFixed(1);
+      if (pw < 0.1) continue;
+      html += `<div class="freq-entry" style="margin-bottom:3px">
+        <div class="fdot" style="background:${n===0?'#00e5ff':n>0?'#ffaa44':'#44aaff'}"></div>
+        <div class="fname" style="font-size:11px">${n===0?'carrier':`${n>0?'+':''}${n}×rf`} (${n>=0?'+':''}${(n*c.rf).toFixed(3)} GHz)</div>
+        <div class="fpower">${pw}%</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  if (c.type === 'pbs') {
+    html += propNum('Split Ratio', 'ratio', c.ratio, 0.0, 1.0, 0.01);
+    html += `<div class="prop-row"><div class="prop-label">T/R</div><div class="prop-val">${(c.ratio*100).toFixed(0)}% / ${((1-c.ratio)*100).toFixed(0)}%</div></div>`;
+  }
+  if (c.type === 'mirror') {
+    html += propNum('Reflectivity', 'reflectivity', c.reflectivity, 0.5, 1.0, 0.01);
+  }
+
+  html += `<button class="del-btn" onclick="deleteSelected()">Delete Component</button>`;
+  el.innerHTML = html;
+
+  // attach listeners
+  el.querySelectorAll('.prop-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const key = inp.dataset.key;
+      const val = inp.type === 'number' ? parseFloat(inp.value) : inp.value;
+      if (!isNaN(val) || inp.type === 'text') {
+        selected[key] = inp.type === 'text' ? val : val;
+        render();
+        // refresh EOM sideband display without full re-render of props
+        if (c.type === 'eom' || c.type === 'aom') updateProps();
+      }
+    });
+  });
+}
+
+function propText(label, key, val) {
+  return `<div class="prop-row">
+    <div class="prop-label">${label}</div>
+    <input class="prop-input" type="text" data-key="${key}" value="${val}">
+  </div>`;
+}
+function propNum(label, key, val, min, max, step) {
+  return `<div class="prop-row">
+    <div class="prop-label">${label}</div>
+    <input class="prop-input" type="number" data-key="${key}" value="${val}" min="${min}" max="${max}" step="${step}">
+    <input class="prop-slider" type="range" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${val}"
+      oninput="this.previousElementSibling.value=this.value;this.previousElementSibling.dispatchEvent(new Event('input'))">
+  </div>`;
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  components = components.filter(c => c !== selected);
+  selected = null;
+  updateProps(); render();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXAMPLE SETUP (our Yb design)
+// ═══════════════════════════════════════════════════════════════
+function loadExample() {
+  components = [];
+  nextId = 1;
+  const cx = W/2, cy = H/2;
+
+  const laser = mkComp('laser',   cx-380, cy);      laser.wavelength=680; laser.angle=0; laser.label='680nm';
+  const fiber  = mkComp('hwp',    cx-280, cy);       fiber.label='Fiber';
+  const aom    = mkComp('aom',    cx-180, cy);       aom.freq=200; aom.order=1; aom.passes=2; aom.label='AOM';
+  const pbs1   = mkComp('pbs',    cx-60,  cy);       pbs1.angle=45; pbs1.ratio=0.52; pbs1.label='PBS1';
+  const eom1   = mkComp('eom',    cx+80,  cy);       eom1.rf=4.696; eom1.beta=1.526; eom1.label='EOM1';
+  const m1     = mkComp('mirror', cx+190, cy);       m1.angle=45;
+  const m2     = mkComp('mirror', cx+190, cy+130);   m2.angle=135;
+  const pbs2   = mkComp('pbs',    cx+330, cy+130);   pbs2.angle=45; pbs2.ratio=0.5; pbs2.label='PBS2';
+  const eom2   = mkComp('eom',    cx-60,  cy-130);   eom2.rf=2.691; eom2.beta=1.920; eom2.label='EOM2';
+  const m3     = mkComp('mirror', cx+80,  cy-130);   m3.angle=45;
+  const m4     = mkComp('mirror', cx+330, cy-130);   m4.angle=135;
+  const dump   = mkComp('dump',   cx+460, cy+130);   dump.label='Output';
+
+  components = [laser,fiber,aom,pbs1,eom1,m1,m2,pbs2,eom2,m3,m4,dump];
+  selected = null;
+  updateProps(); render();
+}
+
+function clearAll() {
+  components = []; selected = null;
+  updateProps(); render();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+resize();
+loadExample();
+</script>
+</body>
+</html>
