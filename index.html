@@ -524,6 +524,7 @@ function traceRays() {
       pol: laser.pol || 0,
       bounces: 0,
       segments: [],
+      passedEOMs: new Set(),
     };
     traceBeam(initBeam, beams);
   }
@@ -542,6 +543,7 @@ function traceRays() {
       pol: fi._beam.pol ?? 0,
       bounces: 0,
       segments: [],
+      passedEOMs: new Set(),
     };
     traceBeam(emitBeam, beams);
   }
@@ -763,15 +765,32 @@ function traceBeam(beam, allBeams, excludeComp) {
   }
 
   if (c.type === 'aom') {
+    const passed = beam.passedEOMs || new Set();
+    if (passed.has(c.id)) {
+      const nb = { ...beam, x:ox, y:oy, bounces:beam.bounces+1, segments:[], passedEOMs: passed };
+      allBeams.push(beam);
+      traceBeam(nb, allBeams, c);
+      return;
+    }
     const shift = c.order * (c.freq / 1000) * c.passes;
     const newFreqs = beam.freqs.map(f => ({ ...f, f: f.f + shift }));
-    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
+    const newPassed = new Set(passed);
+    newPassed.add(c.id);
+    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[], passedEOMs: newPassed };
     allBeams.push(beam);
     traceBeam(nb, allBeams, c);
     return;
   }
 
   if (c.type === 'eom') {
+    // If this beam has already passed through this EOM, treat it as transparent (no second modulation)
+    const passed = beam.passedEOMs || new Set();
+    if (passed.has(c.id)) {
+      const nb = { ...beam, x:ox, y:oy, bounces:beam.bounces+1, segments:[], passedEOMs: passed };
+      allBeams.push(beam);
+      traceBeam(nb, allBeams, c);
+      return;
+    }
     const beta = c.beta || 1.435;
     const rf   = c.rf   || 4.696;
     const eomName = c.label || 'EOM';
@@ -789,7 +808,9 @@ function traceBeam(beam, allBeams, excludeComp) {
         });
       }
     }
-    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[] };
+    const newPassed = new Set(passed);
+    newPassed.add(c.id);
+    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[], passedEOMs: newPassed };
     allBeams.push(beam);
     traceBeam(nb, allBeams, c);
     return;
