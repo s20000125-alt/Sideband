@@ -212,30 +212,32 @@ const TYPE_STYLE = {
 };
 
 const TYPE_ICON = {
-  laser:'⬡', aom:'AO', eom:'EO', mirror:'◫', pbs:'PBS', hwp:'λ/2', qwp:'λ/4', dump:'■'
+  laser:'⬡', aom:'AOM', eom:'EOM', mirror:'◫', pbs:'PBS', hwp:'λ/2', qwp:'λ/4', dump:'■'
+};
+
+// Per-type width (height stays COMP_SIZE)
+const COMP_W = {
+  laser:48, aom:52, eom:52, mirror:36, pbs:36, hwp:44, qwp:44, dump:36
 };
 
 function drawComp(c) {
   const st = TYPE_STYLE[c.type] || TYPE_STYLE.dump;
-  const s = COMP_SIZE;
+  const s  = COMP_SIZE;
+  const sw = COMP_W[c.type] || s;   // per-type width
   ctx.save();
   ctx.translate(c.x, c.y);
 
   // special draw for mirror
   if (c.type === 'mirror') {
     ctx.rotate((c.angle) * Math.PI / 180);
-    // mirror line
-    if (c === selected) {
-      ctx.shadowColor = st.glow; ctx.shadowBlur = 16;
-    }
+    if (c === selected) { ctx.shadowColor = st.glow; ctx.shadowBlur = 16; }
     ctx.beginPath(); ctx.moveTo(-s/2, 0); ctx.lineTo(s/2, 0);
     ctx.strokeStyle = st.stroke; ctx.lineWidth = 4; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-s/2, 2); ctx.lineTo(s/2, 2);
     ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.stroke();
     ctx.shadowBlur = 0;
-    // label
     ctx.rotate(-(c.angle) * Math.PI / 180);
-    ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'bb';
+    ctx.font = '9px IBM Plex Mono'; ctx.fillStyle = st.stroke+'bb';
     ctx.textAlign = 'center'; ctx.fillText(c.label, 0, -s/2+2);
     ctx.restore(); return;
   }
@@ -251,43 +253,41 @@ function drawComp(c) {
     ctx.strokeStyle = st.stroke+'cc'; ctx.lineWidth = 1; ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.rotate(-(c.angle - 45) * Math.PI / 180);
-    ctx.font = '800 11px IBM Plex Mono'; ctx.fillStyle = st.stroke;
+    ctx.font = '800 9px IBM Plex Mono'; ctx.fillStyle = st.stroke;
     ctx.textAlign = 'center'; ctx.fillText('PBS', 0, 3);
     ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
     ctx.fillText(c.label !== 'PBS' ? c.label : '', 0, -s/2-4);
     ctx.restore(); return;
   }
 
-  // Default: rounded rect
+  // Default: rounded rect (uses sw for width)
   if (c === selected) { ctx.shadowColor = st.glow; ctx.shadowBlur = 18; }
-  ctx.beginPath(); ctx.roundRect(-s/2, -s/2, s, s, 4);
+  ctx.beginPath(); ctx.roundRect(-sw/2, -s/2, sw, s, 4);
   ctx.fillStyle = st.bg; ctx.fill();
   ctx.strokeStyle = st.stroke; ctx.lineWidth = c === selected ? 2 : 1.5; ctx.stroke();
   ctx.shadowBlur = 0;
 
   // icon
-  ctx.font = `${c.type==='laser'?'16':'800 10'}px IBM Plex Mono`;
+  ctx.font = `${c.type==='laser'?'16px':'800 11px'} IBM Plex Mono`;
   ctx.fillStyle = st.stroke;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(TYPE_ICON[c.type], 0, c.type==='laser'?1:0);
+  ctx.fillText(TYPE_ICON[c.type], 0, c.type==='laser' ? 1 : 0);
   ctx.textBaseline = 'alphabetic';
 
   // label below
   ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
   ctx.fillText(c.label, 0, s/2 + 12);
 
-  // laser direction arrow
+  // laser: draw direction arrow rotated by angle
   if (c.type === 'laser') {
-    const ang = c.angle * Math.PI / 180;
+    ctx.rotate(c.angle * Math.PI / 180);
     ctx.beginPath();
-    ctx.moveTo(s/2 + 4, 0);
-    ctx.lineTo(s/2 + 14, 0);
-    ctx.strokeStyle = '#ff3355cc'; ctx.lineWidth = 2;
-    ctx.stroke();
-    // arrowhead
+    ctx.moveTo(sw/2 + 4, 0);
+    ctx.lineTo(sw/2 + 16, 0);
+    ctx.strokeStyle = '#ff3355cc'; ctx.lineWidth = 2; ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(s/2+14, 0);
-    ctx.lineTo(s/2+10, -3); ctx.lineTo(s/2+10, 3); ctx.closePath();
+    ctx.moveTo(sw/2+16, 0);
+    ctx.lineTo(sw/2+11, -4); ctx.lineTo(sw/2+11, 4); ctx.closePath();
     ctx.fillStyle = '#ff3355cc'; ctx.fill();
   }
 
@@ -361,23 +361,27 @@ function intersectComp(rx, ry, dx, dy, c) {
     const nx = -my, ny = mx; // or +my,-mx; choose facing toward ray
     return { t: hit.t, nx, ny };
   }
-  // For all others: circle hit test
-  const hs = COMP_SIZE * 0.52;
+  // For all others: ellipse/rect hit test using per-type width
+  const hs  = COMP_SIZE   * 0.52;
+  const hsw = (COMP_W[c.type] || COMP_SIZE) * 0.55;
   const ex = c.x - rx, ey = c.y - ry;
   const a = dx*dx + dy*dy;
   const b = 2*(dx*ex + dy*ey); // note: ex = c.x-rx, not rx-c.x
-  // wait: ray = (rx+t*dx, ry+t*dy), dist to c:
-  // (rx+t*dx - c.x)^2 + (ry+t*dy - c.y)^2 = hs^2
+  // Ellipse hit: (cx/hsw)^2 + (cy/hs)^2 = 1
   const cx2 = rx - c.x, cy2 = ry - c.y;
-  const b2 = 2*(dx*cx2 + dy*cy2);
-  const cc = cx2*cx2 + cy2*cy2 - hs*hs;
-  const disc = b2*b2 - 4*a*cc;
+  // parametric: solve (cx2+t*dx)^2/hsw^2 + (cy2+t*dy)^2/hs^2 = 1
+  const A = dx*dx/(hsw*hsw) + dy*dy/(hs*hs);
+  const B = 2*(cx2*dx/(hsw*hsw) + cy2*dy/(hs*hs));
+  const C = cx2*cx2/(hsw*hsw) + cy2*cy2/(hs*hs) - 1;
+  const disc = B*B - 4*A*C;
   if (disc < 0) return null;
-  const t = (-b2 - Math.sqrt(disc)) / (2*a);
+  const t = (-B - Math.sqrt(disc)) / (2*A);
   if (t < 0.5) return null;
   const hx = rx + t*dx - c.x, hy = ry + t*dy - c.y;
-  const len = Math.hypot(hx, hy);
-  return { t, nx: hx/len, ny: hy/len };
+  // normal on ellipse surface
+  const nx = hx/(hsw*hsw), ny = hy/(hs*hs);
+  const nlen = Math.hypot(nx, ny);
+  return { t, nx: nx/nlen, ny: ny/nlen };
 }
 
 function lineLineIntersect(rx,ry,dx,dy, ex,ey,fx,fy) {
