@@ -17,7 +17,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'IBM Plex Mono',monospace;color:var(--text)}
 
 /* ── LAYOUT ── */
-#app{display:grid;grid-template-columns:200px 1fr 260px;grid-template-rows:44px 1fr 180px;height:100vh}
+#app{display:grid;grid-template-columns:200px 1fr 260px;grid-template-rows:44px 1fr;height:100vh;padding-bottom:var(--fp-h,220px)}
 #topbar{grid-column:1/4;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px}
 #topbar h1{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--beam);letter-spacing:.06em;text-transform:uppercase}
 #topbar .sub{font-size:13px;color:var(--muted)}
@@ -25,9 +25,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .tbtn:hover{border-color:var(--beam);color:var(--beam)}
 .tbtn.danger:hover{border-color:var(--red);color:var(--red)}
 #topbar .spacer{flex:1}
+/* ── resize handle ── */
+#resize-handle{grid-column:2/4;height:5px;background:var(--border);cursor:ns-resize;transition:background .15s;z-index:10}
+#resize-handle:hover,#resize-handle.dragging{background:var(--beam)}
 
 /* ── SIDEBAR LEFT (palette) ── */
-#palette{grid-column:1;grid-row:2/4;background:var(--panel);border-right:1px solid var(--border);padding:12px 8px;overflow-y:auto}
+#palette{grid-column:1;grid-row:2;background:var(--panel);border-right:1px solid var(--border);padding:12px 8px;overflow-y:auto}
 #palette h2{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:10px 4px 6px}
 .comp-item{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:3px;cursor:grab;border:1px solid transparent;transition:all .15s;margin-bottom:3px;user-select:none}
 .comp-item:hover{background:var(--panel2);border-color:var(--border)}
@@ -54,18 +57,90 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .no-sel{color:var(--muted);font-size:10px;line-height:1.7;padding-top:4px}
 .prop-section{border-top:1px solid var(--border);margin-top:12px;padding-top:12px}
 
-/* ── BOTTOM: freq output ── */
-#freqbar{grid-column:2/4;grid-row:3;background:var(--panel);border-top:1px solid var(--border);display:flex;gap:0}
-#spectrum-wrap{flex:1;padding:10px 14px;overflow:hidden}
-#spectrum-wrap h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
-#spec-canvas{display:block;width:100%;height:110px}
-#freq-list{width:260px;border-left:1px solid var(--border);padding:10px 14px;overflow-y:auto}
-#freq-list h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
-.freq-entry{display:flex;align-items:center;gap:6px;margin-bottom:5px}
-.fdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.fname{font-size:11px;color:var(--text);flex:1}
-.fval{font-size:11px;color:var(--muted)}
-.fpower{font-size:11px;color:var(--gold)}
+/* ── BOTTOM FLOATING PANEL ── */
+#freqbar{
+  position:fixed; bottom:0; left:200px; right:0;
+  height:var(--fp-h,260px);
+  background:var(--panel);
+  border-top:2px solid var(--border);
+  display:flex; flex-direction:column;
+  z-index:20; min-height:100px; max-height:90vh;
+}
+#fp-drag{
+  height:6px; cursor:ns-resize; background:var(--border);
+  flex-shrink:0; transition:background .15s;
+}
+#fp-drag:hover, #fp-drag.dragging{ background:var(--beam); }
+
+/* tab bar */
+#fp-tabs{
+  display:flex; align-items:stretch; gap:0;
+  border-bottom:1px solid var(--border); flex-shrink:0;
+  background:var(--panel);
+}
+.fp-tab{
+  padding:6px 20px; font-family:'IBM Plex Mono',monospace;
+  font-size:12px; cursor:pointer; color:var(--muted);
+  border-bottom:2px solid transparent; transition:all .15s;
+  user-select:none; white-space:nowrap;
+}
+.fp-tab:hover{ color:var(--text); }
+.fp-tab.active{ color:var(--beam); border-bottom-color:var(--beam); }
+
+/* tab pages */
+#fp-body{ flex:1; overflow:hidden; display:flex; }
+.fp-page{ display:none; flex:1; overflow:hidden; }
+.fp-page.active{ display:flex; }
+
+/* Spectrum page */
+#page-spectrum{ flex-direction:row; }
+#spectrum-wrap{ flex:1; padding:8px 14px; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+#spectrum-wrap h3{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:4px; flex-shrink:0; }
+#spec-canvas{ display:block; width:100%; flex:1; min-height:0; }
+#freq-list{ width:240px; border-left:1px solid var(--border); padding:8px 14px; overflow-y:auto; flex-shrink:0; }
+#freq-list h3{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:6px; }
+.freq-entry{ display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+.fdot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.fname{ font-size:12px; color:var(--text); flex:1; }
+.fpower{ font-size:12px; color:var(--gold); }
+
+/* Target page */
+#page-target{ flex-direction:row; overflow:hidden; }
+#target-left{ flex:1; padding:10px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+#target-left h3{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); }
+.target-input-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.target-input-row input{
+  flex:1; min-width:80px; background:var(--panel2); border:1px solid var(--border);
+  color:var(--white); font-family:'IBM Plex Mono',monospace; font-size:13px;
+  padding:5px 8px; border-radius:2px; outline:none;
+}
+.target-input-row input:focus{ border-color:var(--gold); }
+.target-input-row input::placeholder{ color:var(--muted); }
+.target-add-btn{
+  background:none; border:1px solid var(--border); color:var(--gold);
+  font-family:'IBM Plex Mono',monospace; font-size:13px; padding:4px 12px;
+  cursor:pointer; border-radius:2px; transition:all .15s;
+}
+.target-add-btn:hover{ background:rgba(255,201,77,.1); border-color:var(--gold); }
+.target-entry{
+  display:flex; align-items:center; gap:8px;
+  padding:5px 8px; border-radius:3px;
+  background:var(--panel2); border:1px solid var(--border);
+}
+.target-freq-val{ font-size:13px; font-weight:600; min-width:80px; }
+.target-lbl{ font-size:12px; color:var(--muted); flex:1; }
+.target-match{ font-size:11px; color:var(--green); min-width:70px; text-align:right; }
+.target-miss{ font-size:11px; color:var(--red); min-width:70px; text-align:right; }
+.target-del{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:0 3px; line-height:1; }
+.target-del:hover{ color:var(--red); }
+#target-right{ width:260px; border-left:1px solid var(--border); padding:10px 14px; overflow-y:auto; flex-shrink:0; }
+#target-right h3{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:6px; }
+
+/* β Curve page */
+#page-beta{ flex-direction:column; overflow:hidden; padding:8px 14px; gap:0; }
+#page-beta h3{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:6px; flex-shrink:0; }
+#beta-canvas{ display:block; width:100%; flex:1; min-height:0; }
+
 </style>
 </head>
 <body>
@@ -118,14 +193,22 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="comp-icon" style="background:rgba(80,80,80,.3);color:#667788">■</div>
     <div><div class="comp-label">Beam Dump</div><div class="comp-sub">Terminate</div></div>
   </div>
+  <h2>Fiber</h2>
+  <div class="comp-item" draggable="true" data-type="fiberin">
+    <div class="comp-icon" style="background:rgba(0,200,255,.2);color:#00c8ff">▶F</div>
+    <div><div class="comp-label">Fiber In</div><div class="comp-sub">Couple into fiber</div></div>
+  </div>
+  <div class="comp-item" draggable="true" data-type="fiberout">
+    <div class="comp-icon" style="background:rgba(0,200,255,.15);color:#00aadd">F▶</div>
+    <div><div class="comp-label">Fiber Out</div><div class="comp-sub">Output from fiber</div></div>
+  </div>
   <h2>Info</h2>
   <div style="font-size:11px;color:var(--muted);line-height:1.8;padding:0 4px">
     • Drag to place<br>
     • Click to select<br>
     • R key: rotate 45°<br>
-    • Delete/Backspace: remove<br>
-    • Mirror reflects beam<br>
-    • PBS splits H/V
+    • Del: remove<br>
+    • Fiber In/Out: pair by same Channel ID
   </div>
 </div>
 
@@ -142,15 +225,58 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   </div>
 </div>
 
-<!-- bottom freq output -->
+<!-- floating bottom panel -->
 <div id="freqbar">
-  <div id="spectrum-wrap">
-    <h3>Frequency Spectrum — Output</h3>
-    <canvas id="spec-canvas"></canvas>
+  <div id="fp-drag"></div>
+  <div id="fp-tabs">
+    <div class="fp-tab active" onclick="switchTab('spectrum')">📊 Spectrum</div>
+    <div class="fp-tab" onclick="switchTab('target')">🎯 Target Frequencies</div>
+    <div class="fp-tab" onclick="switchTab('beta')">β Curves</div>
   </div>
-  <div id="freq-list">
-    <h3>Frequencies</h3>
-    <div id="freq-entries"><span style="font-size:9px;color:var(--muted)">No output yet</span></div>
+  <div id="fp-body">
+
+    <!-- PAGE: Spectrum -->
+    <div class="fp-page active" id="page-spectrum">
+      <div id="spectrum-wrap">
+        <h3>Output Spectrum — Beam Dump only</h3>
+        <canvas id="spec-canvas"></canvas>
+      </div>
+      <div id="freq-list">
+        <h3>Frequencies</h3>
+        <div id="freq-entries"><span style="font-size:12px;color:var(--muted)">No output yet</span></div>
+      </div>
+    </div>
+
+    <!-- PAGE: Target Frequencies -->
+    <div class="fp-page" id="page-target">
+      <div id="target-left">
+        <h3>🎯 Target Frequencies</h3>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">
+          Input target Δf (GHz rel. carrier). Marked on spectrum with tolerance band.
+        </div>
+        <div class="target-input-row">
+          <input id="target-input" type="text" placeholder="Δf  e.g. -6.715">
+          <input id="target-label-input" type="text" placeholder="label" style="max-width:120px">
+          <span style="font-size:12px;color:var(--muted)">tol ±</span>
+          <input id="tol-input" type="number" value="0.05" step="0.01" min="0.001" style="width:60px;background:var(--panel2);border:1px solid var(--border);color:var(--white);font-family:inherit;font-size:12px;padding:4px 6px;border-radius:2px;outline:none">
+          <span style="font-size:12px;color:var(--muted)">GHz</span>
+          <button class="target-add-btn" onclick="addTarget()">+ Add</button>
+          <button class="target-add-btn" style="color:var(--muted)" onclick="clearTargets()">Clear all</button>
+        </div>
+        <div id="target-list"></div>
+      </div>
+      <div id="target-right">
+        <h3>Match Results</h3>
+        <div id="target-match-detail" style="font-size:11px;color:var(--muted)">Add targets to see matches</div>
+      </div>
+    </div>
+
+    <!-- PAGE: β Curves -->
+    <div class="fp-page" id="page-beta">
+      <h3>EOM β Curves — J_n²(β) vs modulation index</h3>
+      <canvas id="beta-canvas"></canvas>
+    </div>
+
   </div>
 </div>
 
@@ -182,18 +308,20 @@ let components = [];
 let selected = null;
 let nextId = 1;
 
-const COMP_SIZE = 36;
+const COMP_SIZE = 46;
 
 function mkComp(type, x, y) {
   const base = { id: nextId++, type, x, y, angle: 0 };
-  if (type === 'laser')  return { ...base, wavelength: 680, power: 1.0, label:'Laser' };
+  if (type === 'laser')  return { ...base, wavelength: 680, power: 1.0, pol: 0, label:'Laser' };
   if (type === 'aom')    return { ...base, freq: 200, order: 1, passes: 2, label:'AOM' };
   if (type === 'eom')    return { ...base, rf: 4.696, beta: 1.435, label:'EOM' };
   if (type === 'mirror') return { ...base, angle: 45, reflectivity: 1.0, label:'Mirror' };
   if (type === 'pbs')    return { ...base, angle: 45, ratio: 0.5, label:'PBS' };
-  if (type === 'hwp')    return { ...base, fast_axis: 0, label:'HWP' };
-  if (type === 'qwp')    return { ...base, fast_axis: 0, label:'QWP' };
-  if (type === 'dump')   return { ...base, label:'Dump' };
+  if (type === 'hwp')    return { ...base, fast_axis: 22.5, label:'HWP' };
+  if (type === 'qwp')    return { ...base, fast_axis: 45, label:'QWP' };
+  if (type === 'dump')     return { ...base, label:'Dump' };
+  if (type === 'fiberin')  return { ...base, channel:'A', label:'FiberIn' };
+  if (type === 'fiberout') return { ...base, channel:'A', angle:0, label:'FiberOut' };
   return base;
 }
 
@@ -201,23 +329,27 @@ function mkComp(type, x, y) {
 // DRAWING COMPONENTS
 // ═══════════════════════════════════════════════════════════════
 const TYPE_STYLE = {
-  laser:  { bg:'#1a0a10', stroke:'#ff3355', glow:'rgba(255,51,85,.5)'  },
-  aom:    { bg:'#081a10', stroke:'#44dd88', glow:'rgba(68,221,136,.4)' },
-  eom:    { bg:'#1a100a', stroke:'#ff9944', glow:'rgba(255,153,68,.4)' },
-  mirror: { bg:'#0a1018', stroke:'#88aacc', glow:'rgba(136,170,204,.3)'},
-  pbs:    { bg:'#080e1a', stroke:'#44aaff', glow:'rgba(68,170,255,.4)' },
-  hwp:    { bg:'#100a1a', stroke:'#cc88ff', glow:'rgba(204,136,255,.4)'},
-  qwp:    { bg:'#0e091a', stroke:'#bb77ee', glow:'rgba(187,119,238,.3)'},
-  dump:   { bg:'#101010', stroke:'#445566', glow:'rgba(68,85,102,.3)'  },
+  laser:    { bg:'#1a0a10', stroke:'#ff3355', glow:'rgba(255,51,85,.5)'  },
+  aom:      { bg:'#081a10', stroke:'#44dd88', glow:'rgba(68,221,136,.4)' },
+  eom:      { bg:'#1a100a', stroke:'#ff9944', glow:'rgba(255,153,68,.4)' },
+  mirror:   { bg:'#0a1018', stroke:'#88aacc', glow:'rgba(136,170,204,.3)'},
+  pbs:      { bg:'#080e1a', stroke:'#44aaff', glow:'rgba(68,170,255,.4)' },
+  hwp:      { bg:'#100a1a', stroke:'#cc88ff', glow:'rgba(204,136,255,.4)'},
+  qwp:      { bg:'#0e091a', stroke:'#bb77ee', glow:'rgba(187,119,238,.3)'},
+  dump:     { bg:'#101010', stroke:'#445566', glow:'rgba(68,85,102,.3)'  },
+  fiberin:  { bg:'#001a20', stroke:'#00c8ff', glow:'rgba(0,200,255,.45)' },
+  fiberout: { bg:'#001a20', stroke:'#00aadd', glow:'rgba(0,170,221,.45)' },
 };
 
 const TYPE_ICON = {
-  laser:'⬡', aom:'AOM', eom:'EOM', mirror:'◫', pbs:'PBS', hwp:'λ/2', qwp:'λ/4', dump:'■'
+  laser:'⬡', aom:'AOM', eom:'EOM', mirror:'◫', pbs:'PBS',
+  hwp:'λ/2', qwp:'λ/4', dump:'■', fiberin:'▶F', fiberout:'F▶'
 };
 
 // Per-type width (height stays COMP_SIZE)
 const COMP_W = {
-  laser:48, aom:52, eom:52, mirror:36, pbs:36, hwp:44, qwp:44, dump:36
+  laser:60, aom:64, eom:64, mirror:46, pbs:46,
+  hwp:56, qwp:56, dump:46, fiberin:60, fiberout:60
 };
 
 function drawComp(c) {
@@ -237,7 +369,7 @@ function drawComp(c) {
     ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.rotate(-(c.angle) * Math.PI / 180);
-    ctx.font = '9px IBM Plex Mono'; ctx.fillStyle = st.stroke+'bb';
+    ctx.font = '11px IBM Plex Mono'; ctx.fillStyle = st.stroke+'bb';
     ctx.textAlign = 'center'; ctx.fillText(c.label, 0, -s/2+2);
     ctx.restore(); return;
   }
@@ -253,10 +385,10 @@ function drawComp(c) {
     ctx.strokeStyle = st.stroke+'cc'; ctx.lineWidth = 1; ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.rotate(-(c.angle - 45) * Math.PI / 180);
-    ctx.font = '800 9px IBM Plex Mono'; ctx.fillStyle = st.stroke;
-    ctx.textAlign = 'center'; ctx.fillText('PBS', 0, 3);
-    ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
-    ctx.fillText(c.label !== 'PBS' ? c.label : '', 0, -s/2-4);
+    ctx.font = '800 12px IBM Plex Mono'; ctx.fillStyle = st.stroke;
+    ctx.textAlign = 'center'; ctx.fillText('PBS', 0, 4);
+    ctx.font = '11px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
+    ctx.fillText(c.label !== 'PBS' ? c.label : '', 0, -s/2-5);
     ctx.restore(); return;
   }
 
@@ -268,15 +400,15 @@ function drawComp(c) {
   ctx.shadowBlur = 0;
 
   // icon
-  ctx.font = `${c.type==='laser'?'16px':'800 11px'} IBM Plex Mono`;
+  ctx.font = `${c.type==='laser'?'20px':'800 13px'} IBM Plex Mono`;
   ctx.fillStyle = st.stroke;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(TYPE_ICON[c.type], 0, c.type==='laser' ? 1 : 0);
   ctx.textBaseline = 'alphabetic';
 
   // label below
-  ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
-  ctx.fillText(c.label, 0, s/2 + 12);
+  ctx.font = '12px IBM Plex Mono'; ctx.fillStyle = st.stroke+'99';
+  ctx.fillText(c.label, 0, s/2 + 15);
 
   // laser: draw direction arrow rotated by angle
   if (c.type === 'laser') {
@@ -307,6 +439,9 @@ function traceRays() {
   const lasers = components.filter(c => c.type === 'laser');
   const beams = [];
 
+  // clear FiberIn stored beams before tracing
+  components.filter(c => c.type === 'fiberin').forEach(c => c._beam = null);
+
   for (const laser of lasers) {
     const ang = laser.angle * Math.PI / 180;
     const initBeam = {
@@ -314,11 +449,31 @@ function traceRays() {
       dx: Math.cos(ang), dy: Math.sin(ang),
       freqs: [{ f: 0, power: laser.power || 1.0, color: wavelengthColor(laser.wavelength || 680), label: 'carrier' }],
       wavelength: laser.wavelength || 680,
+      pol: laser.pol || 0,
       bounces: 0,
       segments: [],
     };
     traceBeam(initBeam, beams);
   }
+
+  // Now emit from FiberOut components — match by channel to FiberIn
+  const fiberOuts = components.filter(c => c.type === 'fiberout');
+  for (const fo of fiberOuts) {
+    const fi = components.find(c => c.type === 'fiberin' && c.channel === fo.channel && c._beam);
+    if (!fi || !fi._beam) continue;
+    const ang = (fo.angle || 0) * Math.PI / 180;
+    const emitBeam = {
+      x: fo.x, y: fo.y,
+      dx: Math.cos(ang), dy: Math.sin(ang),
+      freqs: fi._beam.freqs,
+      wavelength: fi._beam.wavelength || 680,
+      pol: fi._beam.pol ?? 0,
+      bounces: 0,
+      segments: [],
+    };
+    traceBeam(emitBeam, beams);
+  }
+
   return beams;
 }
 
@@ -404,21 +559,28 @@ function traceBeam(beam, allBeams) {
   if (beam.bounces > MAX_BOUNCES) return;
   const hit = hitTest(beam.x, beam.y, beam.dx, beam.dy, null);
   if (!hit) {
-    // goes to edge
     const ex = beam.x + beam.dx * MAX_DIST;
     const ey = beam.y + beam.dy * MAX_DIST;
-    beam.segments.push({ x1:beam.x, y1:beam.y, x2:ex, y2:ey, freqs:beam.freqs });
+    beam.segments.push({ x1:beam.x, y1:beam.y, x2:ex, y2:ey, freqs:beam.freqs, pol:beam.pol??0 });
     allBeams.push(beam);
     return;
   }
 
   const hx = beam.x + beam.dx * hit.t;
   const hy = beam.y + beam.dy * hit.t;
-  beam.segments.push({ x1:beam.x, y1:beam.y, x2:hx, y2:hy, freqs: beam.freqs });
+  beam.segments.push({ x1:beam.x, y1:beam.y, x2:hx, y2:hy, freqs:beam.freqs, pol:beam.pol??0 });
 
   const c = hit.comp;
 
-  if (c.type === 'dump') { allBeams.push(beam); return; }
+  if (c.type === 'dump') { beam.terminal = 'dump'; allBeams.push(beam); return; }
+
+  // Fiber In: absorb beam, store on component for FiberOut to pick up
+  if (c.type === 'fiberin') {
+    beam.terminal = 'fiberin';
+    c._beam = { freqs: beam.freqs, pol: beam.pol ?? 0, wavelength: beam.wavelength };
+    allBeams.push(beam);
+    return;
+  }
 
   if (c.type === 'mirror') {
     const r = reflect(beam.dx, beam.dy, hit.nx, hit.ny);
@@ -439,11 +601,10 @@ function traceBeam(beam, allBeams) {
   }
 
   if (c.type === 'eom') {
-    // EOM: carrier + sidebands using Bessel functions
     const beta = c.beta || 1.435;
-    const rf   = c.rf   || 4.696; // GHz
+    const rf   = c.rf   || 4.696;
+    const eomName = c.label || 'EOM';
     const newFreqs = [];
-    // J_n(beta) sidebands at n*rf
     for (let n = -4; n <= 4; n++) {
       const jn = besselJ(Math.abs(n), beta);
       const power_frac = jn * jn;
@@ -453,7 +614,7 @@ function traceBeam(beam, allBeams) {
           f: f.f + n * rf,
           power: f.power * power_frac,
           color: n === 0 ? f.color : (n > 0 ? '#ffaa44' : '#44aaff'),
-          label: n === 0 ? f.label : (n > 0 ? `+${n}sb` : `${n}sb`)
+          label: n === 0 ? f.label : `[${eomName}] ${n>0?'+':''}${n}sb`
         });
       }
     }
@@ -464,28 +625,46 @@ function traceBeam(beam, allBeams) {
   }
 
   if (c.type === 'pbs') {
-    // transmitted beam (H) and reflected beam (V)
-    // reflect is 90 degrees from incidence
-    // For PBS, split ratio
-    const ratio = c.ratio || 0.5;
-    // transmitted
-    const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * ratio }));
-    const nbT = { ...beam, x:hx, y:hy, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
+    // T = cos²(pol), R = sin²(pol)  where pol=0 is H (fully transmitted)
+    const polRad = (beam.pol || 0) * Math.PI / 180;
+    const T = Math.cos(polRad) ** 2;
+    const R = Math.sin(polRad) ** 2;
+    // transmitted beam keeps H polarisation (pol=0)
+    const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * T }));
+    const nbT = { ...beam, x:hx, y:hy, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
     traceBeam(nbT, allBeams);
-    // reflected: perpendicular
-    const ang_pbs = c.angle * Math.PI / 180; // PBS diagonal angle
-    const nx = Math.cos(ang_pbs), ny = Math.sin(ang_pbs); // along diagonal
-    // normal to diagonal
+    // reflected beam keeps V polarisation (pol=90)
+    const ang_pbs = c.angle * Math.PI / 180;
     const nnx = -Math.sin(ang_pbs), nny = Math.cos(ang_pbs);
     const r = reflect(beam.dx, beam.dy, nnx, nny);
-    const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * (1-ratio) }));
-    const nbR = { ...beam, x:hx, y:hy, dx:r.dx, dy:r.dy, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
+    const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * R }));
+    const nbR = { ...beam, x:hx, y:hy, dx:r.dx, dy:r.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
     traceBeam(nbR, allBeams);
     allBeams.push(beam);
     return;
   }
 
-  // hwp/qwp: pass through, maybe color change
+  // HWP: rotates polarisation  θ_out = 2*fast_axis - θ_in
+  if (c.type === 'hwp') {
+    const fa = c.fast_axis || 0;
+    const newPol = ((2 * fa - (beam.pol || 0)) % 360 + 360) % 360;
+    const nb = { ...beam, x:hx, y:hy, pol:newPol, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nb, allBeams);
+    allBeams.push(beam);
+    return;
+  }
+
+  // QWP: rotates polarisation by fast_axis offset (simplified)
+  if (c.type === 'qwp') {
+    const fa = c.fast_axis || 45;
+    const newPol = ((beam.pol || 0) + fa) % 360;
+    const nb = { ...beam, x:hx, y:hy, pol:newPol, bounces:beam.bounces+1, segments:[] };
+    traceBeam(nb, allBeams);
+    allBeams.push(beam);
+    return;
+  }
+
+  // other: pass through
   const nb = { ...beam, x:hx, y:hy, bounces:beam.bounces+1, segments:[] };
   traceBeam(nb, allBeams);
   allBeams.push(beam);
@@ -512,6 +691,76 @@ function besselJ(n, x) {
   return sum;
 }
 function factorial(n) { let r=1; for(let i=2;i<=n;i++) r*=i; return r; }
+
+// ── draw polarisation marker on a beam segment ──────────────────
+function drawPolMarker(seg) {
+  const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1;
+  const len = Math.hypot(dx, dy);
+  if (len < 40) return;   // segment too short, skip
+
+  // place marker at 1/2 of segment
+  const mx = seg.x1 + dx * 0.5;
+  const my = seg.y1 + dy * 0.5;
+
+  // beam direction unit vector
+  const bdx = dx/len, bdy = dy/len;
+
+  const pol = seg.pol ?? 0;
+  const polRad = pol * Math.PI / 180;
+
+  // polarisation vector in world coords:
+  // pol=0 (H) → perpendicular to beam in screen coords
+  // we define pol angle relative to screen vertical
+  const arm = 9; // half-length of marker line
+
+  // marker direction = rotate beam-perp by pol angle
+  // beam perp = (-bdy, bdx)
+  const perpx = -bdy, perpy = bdx;
+  // rotate perpx,perpy by polRad
+  const mx1 = perpx * Math.cos(polRad) - perpy * Math.sin(polRad);
+  const my1 = perpx * Math.sin(polRad) + perpy * Math.cos(polRad);
+
+  // color by pol state
+  let col;
+  const p = ((pol % 180) + 180) % 180;
+  if (p < 10 || p > 170)       col = '#00e5ff';   // H → cyan
+  else if (Math.abs(p-90) < 10) col = '#ff4488';   // V → pink
+  else if (Math.abs(p-45) < 15) col = '#cc88ff';   // 45° → purple
+  else                           col = '#ffd166';   // other → gold
+
+  ctx.save();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1.8;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 6;
+
+  // draw double-headed line
+  ctx.beginPath();
+  ctx.moveTo(mx - mx1*arm, my - my1*arm);
+  ctx.lineTo(mx + mx1*arm, my + my1*arm);
+  ctx.stroke();
+
+  // arrowheads at both ends
+  const ah = 4;
+  [[1],[- 1]].forEach(([s]) => {
+    const ex = mx + s*mx1*arm, ey = my + s*my1*arm;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - s*mx1*ah + my1*ah*0.5, ey - s*my1*ah - mx1*ah*0.5);
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - s*mx1*ah - my1*ah*0.5, ey - s*my1*ah + mx1*ah*0.5);
+    ctx.stroke();
+  });
+
+  // label
+  ctx.shadowBlur = 0;
+  ctx.font = '11px IBM Plex Mono';
+  ctx.fillStyle = col + 'cc';
+  ctx.textAlign = 'center';
+  const polLabel = p < 10 || p > 170 ? 'H' : Math.abs(p-90)<10 ? 'V' : `${Math.round(p)}°`;
+  ctx.fillText(polLabel, mx + perpy*14, my - perpx*14);
+  ctx.restore();
+}
 
 // ═══════════════════════════════════════════════════════════════
 // RENDER
@@ -546,6 +795,9 @@ function render() {
       ctx.shadowBlur = 0;
       ctx.restore();
 
+      // polarisation marker
+      drawPolMarker(seg);
+
       // if multiple freqs, draw thin lines alongside
       if (seg.freqs.length > 1) {
         seg.freqs.forEach((f, i) => {
@@ -565,20 +817,39 @@ function render() {
     }
   }
 
+  // draw fiber links between matched FiberIn/Out pairs
+  const fiberIns = components.filter(c => c.type === 'fiberin');
+  components.filter(c => c.type === 'fiberout').forEach(fo => {
+    const fi = fiberIns.find(c => c.channel === fo.channel);
+    if (!fi) return;
+    ctx.save();
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = '#00c8ff44';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(fi.x, fi.y); ctx.lineTo(fo.x, fo.y); ctx.stroke();
+    ctx.setLineDash([]);
+    // midpoint label
+    ctx.font = '12px IBM Plex Mono'; ctx.fillStyle = '#00c8ff88';
+    ctx.textAlign = 'center';
+    ctx.fillText(`ch:${fi.channel}`, (fi.x+fo.x)/2, (fi.y+fo.y)/2 - 8);
+    ctx.restore();
+  });
+
   // components
   for (const c of components) drawComp(c);
 
   // update spectrum
   updateSpectrum(beams);
+  if (activeTab === 'beta') drawBetaCanvas();
 }
 
 // ═══════════════════════════════════════════════════════════════
 // SPECTRUM
 // ═══════════════════════════════════════════════════════════════
 function updateSpectrum(beams) {
-  // collect all output frequencies (last segment of each beam)
   const allFreqs = [];
   for (const beam of beams) {
+    if (beam.terminal !== 'dump') continue;
     const last = beam.segments[beam.segments.length - 1];
     if (!last) continue;
     for (const f of last.freqs) {
@@ -587,68 +858,122 @@ function updateSpectrum(beams) {
     }
   }
 
-  // draw spectrum canvas
   const sc = document.getElementById('spec-canvas');
-  const r = sc.parentElement.getBoundingClientRect();
-  sc.width  = r.width  - 28;
-  sc.height = 110;
+  const r  = sc.parentElement.getBoundingClientRect();
+  sc.width  = Math.floor(r.width  - 4);
+  sc.height = Math.floor(r.height - 30);
   const sctx = sc.getContext('2d');
   sctx.clearRect(0, 0, sc.width, sc.height);
-  sctx.fillStyle = '#070910';
-  sctx.fillRect(0, 0, sc.width, sc.height);
+  sctx.fillStyle = '#060810'; sctx.fillRect(0,0,sc.width,sc.height);
 
-  if (allFreqs.length === 0) {
-    sctx.fillStyle = '#445566'; sctx.font = '12px IBM Plex Mono';
+  const SH = sc.height, SW = sc.width;
+  const PAD_L = 36, PAD_R = 12, PAD_T = 16, PAD_B = 30;
+  const plotW = SW - PAD_L - PAD_R;
+  const plotH = SH - PAD_T - PAD_B;
+  const baseline = PAD_T + plotH;
+
+  // compute freq range including targets
+  const allF = [...allFreqs.map(f=>f.f), ...targetFreqs.map(t=>t.f)];
+  if (allFreqs.length === 0 && targetFreqs.length === 0) {
+    sctx.fillStyle = '#445566'; sctx.font = '11px IBM Plex Mono';
     sctx.textAlign = 'center';
-    sctx.fillText('Place a Laser and components to see output spectrum', sc.width/2, 55);
-  } else {
-    const minF = Math.min(...allFreqs.map(f=>f.f)) - 1;
-    const maxF = Math.max(...allFreqs.map(f=>f.f)) + 1;
-    const range = Math.max(maxF - minF, 1);
-    const maxP  = Math.max(...allFreqs.map(f=>f.power));
-
-    // axis
-    sctx.strokeStyle = '#1c2535'; sctx.lineWidth = 1;
-    sctx.beginPath(); sctx.moveTo(32, 90); sctx.lineTo(sc.width-8, 90); sctx.stroke();
-
-    // bars
-    allFreqs.forEach(f => {
-      const xp = 32 + ((f.f - minF) / range) * (sc.width - 40);
-      const yp = 90 - (f.power / maxP) * 70;
-      sctx.save();
-      sctx.shadowColor = f.color; sctx.shadowBlur = 6;
-      sctx.strokeStyle = f.color; sctx.lineWidth = 3;
-      sctx.beginPath(); sctx.moveTo(xp, 90); sctx.lineTo(xp, yp); sctx.stroke();
-      sctx.shadowBlur = 0;
-      sctx.restore();
-      // freq label
-      sctx.fillStyle = f.color + 'cc'; sctx.font = '9px IBM Plex Mono';
-      sctx.textAlign = 'center';
-      const label = f.f >= 0 ? `+${f.f.toFixed(2)}` : `${f.f.toFixed(2)}`;
-      sctx.fillText(label, xp, 88);
-      sctx.fillText('GHz', xp, 98);
-    });
-
-    // axis label
-    sctx.fillStyle = '#445566'; sctx.font = '10px IBM Plex Mono';
-    sctx.textAlign = 'left';
-    sctx.fillText('Δf (GHz rel. to carrier)', 32, 108);
+    sctx.fillText('No Beam Dump reached — route a beam to a Beam Dump to see output', SW/2, SH/2);
+    updateFreqList(allFreqs); return;
   }
 
-  // freq list
+  const minF = (allF.length ? Math.min(...allF) : -1) - 0.8;
+  const maxF = (allF.length ? Math.max(...allF) : 1)  + 0.8;
+  const range = Math.max(maxF - minF, 0.5);
+  const maxP  = allFreqs.length ? Math.max(...allFreqs.map(f=>f.power)) : 1;
+
+  const toX = f => PAD_L + ((f - minF) / range) * plotW;
+  const toY = p => baseline - (p / maxP) * plotH;
+
+  // grid lines
+  sctx.strokeStyle = '#111820'; sctx.lineWidth = 1;
+  for (let i=0; i<=4; i++) {
+    const y = PAD_T + i * plotH/4;
+    sctx.beginPath(); sctx.moveTo(PAD_L, y); sctx.lineTo(SW-PAD_R, y); sctx.stroke();
+  }
+
+  // axis
+  sctx.strokeStyle = '#2a3a4a'; sctx.lineWidth = 1.5;
+  sctx.beginPath(); sctx.moveTo(PAD_L, baseline); sctx.lineTo(SW-PAD_R, baseline); sctx.stroke();
+
+  // ── TARGET lines (behind bars) ──────────────────────────────
+  const tol = parseFloat(document.getElementById('tol-input').value) || 0.05;
+  targetFreqs.forEach((t, i) => {
+    const xp = toX(t.f);
+    if (xp < PAD_L || xp > SW-PAD_R) return;
+    // shaded band
+    const bw = (tol / range) * plotW;
+    sctx.fillStyle = t.color + '18';
+    sctx.fillRect(xp - bw, PAD_T, bw*2, plotH);
+    // center line
+    sctx.save();
+    sctx.strokeStyle = t.color + 'aa'; sctx.lineWidth = 1.2;
+    sctx.setLineDash([4,3]);
+    sctx.beginPath(); sctx.moveTo(xp, PAD_T); sctx.lineTo(xp, baseline); sctx.stroke();
+    sctx.setLineDash([]);
+    // label top
+    sctx.font = '9px IBM Plex Mono'; sctx.fillStyle = t.color + 'dd';
+    sctx.textAlign = 'center';
+    sctx.fillText(t.label, xp, PAD_T - 3);
+    sctx.restore();
+  });
+
+  // ── OUTPUT BARS ─────────────────────────────────────────────
+  allFreqs.forEach(f => {
+    const xp = toX(f.f);
+    const yp = toY(f.power);
+    sctx.save();
+    sctx.shadowColor = f.color; sctx.shadowBlur = 7;
+    sctx.strokeStyle = f.color; sctx.lineWidth = 3;
+    sctx.beginPath(); sctx.moveTo(xp, baseline); sctx.lineTo(xp, yp); sctx.stroke();
+    sctx.shadowBlur = 0;
+    sctx.restore();
+    sctx.fillStyle = f.color+'cc'; sctx.font = '9px IBM Plex Mono'; sctx.textAlign='center';
+    sctx.fillText(`${f.f>=0?'+':''}${f.f.toFixed(2)}`, xp, baseline+10);
+  });
+
+  // axis label
+  sctx.fillStyle='#334455'; sctx.font='9px IBM Plex Mono'; sctx.textAlign='left';
+  sctx.fillText('Δf (GHz rel. carrier)', PAD_L, SH-3);
+
+  // ── CHECK MATCHES ────────────────────────────────────────────
+  targetFreqs.forEach((t, i) => {
+    const match = allFreqs.find(f => Math.abs(f.f - t.f) <= tol);
+    const el = document.getElementById(`tmatch-${i}`);
+    if (!el) return;
+    if (match) {
+      const diff = (match.f - t.f).toFixed(3);
+      el.className = 'target-match';
+      el.textContent = `✓ Δ${diff>=0?'+':''}${diff}`;
+    } else {
+      // find nearest
+      if (allFreqs.length === 0) { el.className='target-miss'; el.textContent='—'; return; }
+      const nearest = allFreqs.reduce((a,b) => Math.abs(a.f-t.f)<Math.abs(b.f-t.f)?a:b);
+      const gap = (nearest.f - t.f);
+      el.className = 'target-miss';
+      el.textContent = `${gap>=0?'+':''}${gap.toFixed(3)} off`;
+    }
+  });
+
+  updateFreqList(allFreqs);
+}
+
+function updateFreqList(allFreqs) {
   const el = document.getElementById('freq-entries');
   if (allFreqs.length === 0) {
-    el.innerHTML = '<span style="font-size:9px;color:var(--muted)">No output yet</span>';
-  } else {
-    // deduplicate and sort by power
-    const sorted = [...allFreqs].sort((a,b) => b.power - a.power).slice(0, 12);
-    el.innerHTML = sorted.map(f => `
-      <div class="freq-entry">
-        <div class="fdot" style="background:${f.color}"></div>
-        <div class="fname">${f.label} ${f.f>=0?'+':''}${f.f.toFixed(3)} GHz</div>
-        <div class="fpower">${(f.power*100).toFixed(1)}%</div>
-      </div>`).join('');
+    el.innerHTML = '<span style="font-size:10px;color:var(--muted)">No output yet</span>'; return;
   }
+  const sorted = [...allFreqs].sort((a,b)=>b.power-a.power).slice(0,14);
+  el.innerHTML = sorted.map(f=>`
+    <div class="freq-entry">
+      <div class="fdot" style="background:${f.color}"></div>
+      <div class="fname">${f.label} ${f.f>=0?'+':''}${f.f.toFixed(3)} GHz</div>
+      <div class="fpower">${(f.power*100).toFixed(1)}%</div>
+    </div>`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -745,11 +1070,18 @@ function updateProps() {
   const c = selected;
   let html = `<div class="prop-row"><div class="prop-label">Type</div><div class="prop-val">${c.type.toUpperCase()}</div></div>`;
   html += propText('Label', 'label', c.label);
-  html += propNum('Angle (deg)', 'angle', c.angle, 0, 360, 5);
+
+  // Only mirror, hwp, qwp, fiberout have editable angle
+  if (['mirror','hwp','qwp','fiberout'].includes(c.type)) {
+    html += propNum('Angle (deg)', 'angle', c.angle ?? 0, 0, 360, 5);
+  }
 
   if (c.type === 'laser') {
     html += propNum('Wavelength (nm)', 'wavelength', c.wavelength, 200, 1100, 1);
     html += propNum('Power', 'power', c.power, 0.1, 10, 0.1);
+    html += propNum('Polarisation (deg)', 'pol', c.pol ?? 0, 0, 360, 1);
+    const polRad = (c.pol || 0) * Math.PI / 180;
+    html += `<div class="prop-row"><div class="prop-label">Pol state</div><div class="prop-val" style="color:var(--purple)">${Math.abs(c.pol||0) < 5 || Math.abs((c.pol||0)-360)<5 ? 'H (horizontal)' : Math.abs((c.pol||0)-90)<5 ? 'V (vertical)' : Math.abs((c.pol||0)-45)<5 ? '45° linear' : `${(c.pol||0).toFixed(0)}° linear`}</div></div>`;
   }
   if (c.type === 'aom') {
     html += propNum('RF Freq (MHz)', 'freq', c.freq, 20, 400, 1);
@@ -775,11 +1107,29 @@ function updateProps() {
     html += `</div>`;
   }
   if (c.type === 'pbs') {
-    html += propNum('Split Ratio', 'ratio', c.ratio, 0.0, 1.0, 0.01);
-    html += `<div class="prop-row"><div class="prop-label">T/R</div><div class="prop-val">${(c.ratio*100).toFixed(0)}% / ${((1-c.ratio)*100).toFixed(0)}%</div></div>`;
+    html += `<div class="prop-section"><div class="prop-label">T/R (from beam pol)</div>`;
+    html += `<div class="prop-val" style="color:var(--beam)">Depends on incident beam</div>`;
+    html += `<div style="font-size:10px;color:var(--muted);margin-top:4px">T = cos²(θ_pol)  R = sin²(θ_pol)<br>pol=0° → 100% T &nbsp; pol=90° → 100% R<br>pol=45° → 50/50</div></div>`;
+  }
+  if (c.type === 'hwp') {
+    html += propNum('Fast axis (deg)', 'fast_axis', c.fast_axis ?? 22.5, 0, 180, 0.5);
+    const eg_in = 0, eg_out = ((2*(c.fast_axis??22.5) - eg_in) % 360 + 360) % 360;
+    html += `<div class="prop-row"><div class="prop-label">Effect (H-in → out)</div><div class="prop-val" style="color:var(--purple)">${eg_out.toFixed(1)}°</div></div>`;
+    html += `<div style="font-size:10px;color:var(--muted);margin-bottom:6px">θ_out = 2×FA − θ_in<br>FA=22.5° : H→45° (equal split at PBS)<br>FA=45° : H→V (full reflect at PBS)</div>`;
+  }
+  if (c.type === 'qwp') {
+    html += propNum('Fast axis (deg)', 'fast_axis', c.fast_axis ?? 45, 0, 180, 0.5);
   }
   if (c.type === 'mirror') {
     html += propNum('Reflectivity', 'reflectivity', c.reflectivity, 0.5, 1.0, 0.01);
+  }
+  if (c.type === 'fiberin' || c.type === 'fiberout') {
+    html += propText('Channel ID', 'channel', c.channel ?? 'A');
+    html += `<div style="font-size:10px;color:var(--muted);margin-top:4px">Pair FiberIn + FiberOut with same Channel ID.<br>Light enters FiberIn → exits FiberOut.</div>`;
+    if (c.type === 'fiberin' && c._beam) {
+      html += `<div class="prop-section"><div class="prop-label">Coupled beam</div>`;
+      html += `<div class="prop-val" style="color:var(--beam)">${c._beam.freqs.length} freq component(s)</div></div>`;
+    }
   }
 
   html += `<button class="del-btn" onclick="deleteSelected()">Delete Component</button>`;
@@ -831,7 +1181,7 @@ function loadExample() {
   const cx = W/2, cy = H/2;
 
   const laser = mkComp('laser',   cx-380, cy);      laser.wavelength=680; laser.angle=0; laser.label='680nm';
-  const fiber  = mkComp('hwp',    cx-280, cy);       fiber.label='Fiber';
+  const fiber  = mkComp('hwp',    cx-280, cy);       fiber.label='HWP'; fiber.fast_axis=22.5;
   const aom    = mkComp('aom',    cx-180, cy);       aom.freq=200; aom.order=1; aom.passes=2; aom.label='AOM';
   const pbs1   = mkComp('pbs',    cx-60,  cy);       pbs1.angle=45; pbs1.ratio=0.52; pbs1.label='PBS1';
   const eom1   = mkComp('eom',    cx+80,  cy);       eom1.rf=4.696; eom1.beta=1.526; eom1.label='EOM1';
@@ -854,9 +1204,212 @@ function clearAll() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// INIT
+// FLOATING PANEL RESIZE
 // ═══════════════════════════════════════════════════════════════
+(function() {
+  const handle = document.getElementById('fp-drag');
+  const app    = document.getElementById('app');
+  const fp     = document.getElementById('freqbar');
+  let resizing = false, startY = 0, startH = 0;
+
+  handle.addEventListener('mousedown', e => {
+    resizing = true;
+    startY = e.clientY;
+    startH = fp.getBoundingClientRect().height;
+    handle.classList.add('dragging');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const delta = startY - e.clientY;
+    const newH  = Math.max(80, Math.min(window.innerHeight * 0.85, startH + delta));
+    fp.style.height = newH + 'px';
+    app.style.paddingBottom = newH + 'px';
+    render();
+  });
+  window.addEventListener('mouseup', () => {
+    if (resizing) { resizing = false; handle.classList.remove('dragging'); }
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// TARGET FREQUENCIES
+// ═══════════════════════════════════════════════════════════════
+let targetFreqs = [];   // [{f: GHz, label, color}]
+const TARGET_COLORS = ['#ffd166','#ff6b9d','#c77dff','#06d6a0','#f4a261','#48cae4','#e9c46a'];
+
+function addTarget() {
+  const inp   = document.getElementById('target-input');
+  const linp  = document.getElementById('target-label-input');
+  const val   = parseFloat(inp.value.replace(',','.'));
+  if (isNaN(val)) { inp.style.borderColor='var(--red)'; setTimeout(()=>inp.style.borderColor='',800); return; }
+  const label = linp.value.trim() || `T${targetFreqs.length+1}`;
+  const color = TARGET_COLORS[targetFreqs.length % TARGET_COLORS.length];
+  targetFreqs.push({ f: val, label, color });
+  inp.value = ''; linp.value = '';
+  renderTargetList();
+  render();
+}
+
+document.getElementById('target-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTarget();
+});
+
+function removeTarget(i) {
+  targetFreqs.splice(i, 1);
+  renderTargetList(); render();
+}
+
+function clearTargets() {
+  targetFreqs = []; renderTargetList(); render();
+}
+
+function renderTargetList() {
+  const el = document.getElementById('target-list');
+  if (targetFreqs.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No targets set — type a Δf value above and press Enter or + Add</div>';
+    return;
+  }
+  el.innerHTML = targetFreqs.map((t,i) => `
+    <div class="target-entry">
+      <div class="fdot" style="background:${t.color}"></div>
+      <div class="target-freq-val" style="color:${t.color}">${t.f>=0?'+':''}${t.f.toFixed(3)} GHz</div>
+      <div class="target-lbl">${t.label}</div>
+      <div id="tmatch-${i}" class="target-miss">—</div>
+      <button class="target-del" onclick="removeTarget(${i})">×</button>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+let activeTab = 'spectrum';
+function switchTab(name) {
+  activeTab = name;
+  document.querySelectorAll('.fp-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.fp-page').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.fp-tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById(`page-${name}`).classList.add('active');
+  if (name === 'beta') drawBetaCanvas();
+  if (name === 'spectrum') render(); // redraw spectrum to fill new size
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BESSEL CURVE PAGE
+// ═══════════════════════════════════════════════════════════════
+function drawBetaCanvas() {
+  const bc = document.getElementById('beta-canvas');
+  const wr = bc.parentElement.getBoundingClientRect();
+  bc.width  = Math.floor(wr.width  - 28);
+  bc.height = Math.floor(wr.height - 40);
+  const bctx = bc.getContext('2d');
+  const W2 = bc.width, H2 = bc.height;
+  bctx.clearRect(0,0,W2,H2);
+  bctx.fillStyle='#060810'; bctx.fillRect(0,0,W2,H2);
+
+  // find all EOMs on canvas
+  const eoms = components.filter(c => c.type === 'eom');
+  if (eoms.length === 0) {
+    bctx.fillStyle='#445566'; bctx.font='13px IBM Plex Mono';
+    bctx.textAlign='center';
+    bctx.fillText('No EOM components on canvas', W2/2, H2/2);
+    return;
+  }
+
+  const cols = eoms.length;
+  const panelW = Math.floor(W2 / cols);
+  const PAD = { l:44, r:16, t:28, b:36 };
+
+  eoms.forEach((eom, ei) => {
+    const ox = ei * panelW;
+    const plotW = panelW - PAD.l - PAD.r;
+    const plotH = H2 - PAD.t - PAD.b;
+    const beta_max = 3.0;
+    const N_POINTS = 200;
+
+    // grid
+    bctx.strokeStyle='#111820'; bctx.lineWidth=0.8;
+    for (let i=0;i<=4;i++) {
+      const y = PAD.t + i*plotH/4;
+      bctx.beginPath(); bctx.moveTo(ox+PAD.l,y); bctx.lineTo(ox+PAD.l+plotW,y); bctx.stroke();
+    }
+    for (let i=0;i<=6;i++) {
+      const x = ox+PAD.l + i*plotW/6;
+      bctx.beginPath(); bctx.moveTo(x,PAD.t); bctx.lineTo(x,PAD.t+plotH); bctx.stroke();
+    }
+
+    // axes
+    bctx.strokeStyle='#2a3a4a'; bctx.lineWidth=1.5;
+    bctx.beginPath(); bctx.moveTo(ox+PAD.l, PAD.t); bctx.lineTo(ox+PAD.l, PAD.t+plotH); bctx.stroke();
+    bctx.beginPath(); bctx.moveTo(ox+PAD.l, PAD.t+plotH); bctx.lineTo(ox+PAD.l+plotW, PAD.t+plotH); bctx.stroke();
+
+    // axis labels
+    bctx.fillStyle='#445566'; bctx.font='10px IBM Plex Mono'; bctx.textAlign='center';
+    bctx.fillText('β (mod index)', ox+PAD.l+plotW/2, H2-4);
+    [0,0.5,1.0,1.5,2.0,2.5,3.0].forEach(v=>{
+      const x = ox+PAD.l + (v/beta_max)*plotW;
+      bctx.fillText(v.toFixed(1), x, PAD.t+plotH+14);
+    });
+    bctx.textAlign='right';
+    [0,0.25,0.5,0.75,1.0].forEach(v=>{
+      const y = PAD.t + plotH - v*plotH;
+      bctx.fillText(v.toFixed(2), ox+PAD.l-4, y+4);
+    });
+
+    // title
+    bctx.fillStyle='#c9d1d9'; bctx.font='bold 12px IBM Plex Mono'; bctx.textAlign='center';
+    bctx.fillText(`${eom.label || 'EOM'} — ${eom.rf} GHz`, ox+PAD.l+plotW/2, PAD.t-8);
+
+    // curves J0, J1, J2
+    const curves = [
+      { n:0, color:'#ffd166', lw:2.2, dash:[], name:'J₀² (carrier)' },
+      { n:1, color: ei===0?'#ff6b6b':'#69d2e7', lw:2.2, dash:[], name:'J₁² (±1 sb)' },
+      { n:2, color:'#667788', lw:1.4, dash:[5,4], name:'J₂² (±2 sb)' },
+    ];
+    curves.forEach(cv => {
+      bctx.beginPath();
+      bctx.strokeStyle=cv.color; bctx.lineWidth=cv.lw;
+      bctx.setLineDash(cv.dash);
+      for (let i=0;i<=N_POINTS;i++) {
+        const b = (i/N_POINTS)*beta_max;
+        const jn = besselJ(cv.n, b);
+        const p  = jn*jn;
+        const x  = ox+PAD.l + (b/beta_max)*plotW;
+        const y  = PAD.t + plotH - p*plotH;
+        i===0 ? bctx.moveTo(x,y) : bctx.lineTo(x,y);
+      }
+      bctx.stroke(); bctx.setLineDash([]);
+    });
+
+    // current β marker
+    const beta_cur = eom.beta || 1.435;
+    const bx = ox+PAD.l + (beta_cur/beta_max)*plotW;
+    bctx.strokeStyle='#ffffff55'; bctx.lineWidth=1.2; bctx.setLineDash([3,3]);
+    bctx.beginPath(); bctx.moveTo(bx,PAD.t); bctx.lineTo(bx,PAD.t+plotH); bctx.stroke();
+    bctx.setLineDash([]);
+    bctx.fillStyle='#ffffffcc'; bctx.font='11px IBM Plex Mono'; bctx.textAlign='center';
+    bctx.fillText(`β=${beta_cur.toFixed(3)}`, bx, PAD.t-2);
+
+    // legend
+    let lx = ox+PAD.l+8, ly = PAD.t+14;
+    curves.forEach(cv=>{
+      bctx.strokeStyle=cv.color; bctx.lineWidth=cv.lw; bctx.setLineDash(cv.dash);
+      bctx.beginPath(); bctx.moveTo(lx,ly); bctx.lineTo(lx+22,ly); bctx.stroke();
+      bctx.setLineDash([]);
+      bctx.fillStyle=cv.color; bctx.font='11px IBM Plex Mono'; bctx.textAlign='left';
+      bctx.fillText(cv.name, lx+26, ly+4);
+      ly += 18;
+    });
+
+    // panel divider
+    if (ei < cols-1) {
+      bctx.strokeStyle='#1c2535'; bctx.lineWidth=1;
+      bctx.beginPath(); bctx.moveTo(ox+panelW,0); bctx.lineTo(ox+panelW,H2); bctx.stroke();
+    }
+  });
+}
 resize();
+renderTargetList();
 loadExample();
 </script>
 </body>
