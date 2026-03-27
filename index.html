@@ -699,9 +699,7 @@ function traceBeam(beam, allBeams, excludeComp) {
   beam.segments.push({ x1:beam.x, y1:beam.y, x2:hx, y2:hy, freqs:beam.freqs, pol:beam.pol??0 });
 
   const c = hit.comp;
-  // Push child beam start point well past the component so it doesn't re-hit immediately
-  // Must be > COMP_SIZE (46) to clear the largest component's half-extent
-  const PUSH = COMP_SIZE * 1.2;
+  const PUSH = 8;  // just enough to clear the component surface without visible gap
   const ox = hx + beam.dx * PUSH;   // transmit / pass-through direction
   const oy = hy + beam.dy * PUSH;
 
