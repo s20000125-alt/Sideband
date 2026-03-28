@@ -194,14 +194,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="comp-icon" style="background:rgba(80,80,80,.3);color:#667788">■</div>
     <div><div class="comp-label">Beam Dump</div><div class="comp-sub">Terminate</div></div>
   </div>
-  <h2>Fiber</h2>
-  <div class="comp-item" draggable="true" data-type="fiberin">
-    <div class="comp-icon" style="background:rgba(0,200,255,.2);color:#00c8ff">▶F</div>
-    <div><div class="comp-label">Fiber In</div><div class="comp-sub">Couple into fiber</div></div>
-  </div>
-  <div class="comp-item" draggable="true" data-type="fiberout">
-    <div class="comp-icon" style="background:rgba(0,200,255,.15);color:#00aadd">F▶</div>
-    <div><div class="comp-label">Fiber Out</div><div class="comp-sub">Output from fiber</div></div>
   </div>
   <h2>Info</h2>
   <div style="font-size:11px;color:var(--muted);line-height:1.8;padding:0 4px">
@@ -209,7 +201,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     • Click to select<br>
     • R key: rotate 45°<br>
     • Del: remove<br>
-    • Fiber In/Out: pair by same Channel ID
   </div>
 </div>
 
@@ -284,6 +275,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 </div>
 
 <script>
+
+// ═══════════════════════════════════════════════════════════════
+// JONES VECTOR HELPERS
+// ═══════════════════════════════════════════════════════════════
+// Jones vector: [Ex_re, Ex_im, Ey_re, Ey_im]
+
+function polToJones(polDeg) {
+  const r = polDeg * Math.PI / 180;
+  return [Math.cos(r), 0, Math.sin(r), 0];
+}
+
+function jonesToPol(j) {
+  const ExAmp = Math.hypot(j[0], j[1]);
+  const EyAmp = Math.hypot(j[2], j[3]);
+  return Math.atan2(EyAmp, ExAmp) * 180 / Math.PI;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CANVAS SETUP
 // ═══════════════════════════════════════════════════════════════
@@ -343,8 +351,6 @@ function mkComp(type, x, y) {
   if (type === 'hwp')    return { ...base, fast_axis: 22.5, label:'HWP' };
   if (type === 'qwp')    return { ...base, fast_axis: 45, label:'QWP' };
   if (type === 'dump')     return { ...base, label:'Dump' };
-  if (type === 'fiberin')  return { ...base, channel:'A', label:'FiberIn' };
-  if (type === 'fiberout') return { ...base, channel:'A', angle:0, label:'FiberOut' };
   return base;
 }
 
@@ -360,19 +366,17 @@ const TYPE_STYLE = {
   hwp:      { bg:'#100a1a', stroke:'#cc88ff', glow:'rgba(204,136,255,.4)'},
   qwp:      { bg:'#0e091a', stroke:'#bb77ee', glow:'rgba(187,119,238,.3)'},
   dump:     { bg:'#101010', stroke:'#445566', glow:'rgba(68,85,102,.3)'  },
-  fiberin:  { bg:'#001a20', stroke:'#00c8ff', glow:'rgba(0,200,255,.45)' },
-  fiberout: { bg:'#001a20', stroke:'#00aadd', glow:'rgba(0,170,221,.45)' },
 };
 
 const TYPE_ICON = {
   laser:'⬡', aom:'AOM', eom:'EOM', mirror:'◫', pbs:'PBS',
-  hwp:'λ/2', qwp:'λ/4', dump:'■', fiberin:'▶F', fiberout:'F▶'
+  hwp:'λ/2', qwp:'λ/4', dump:'■'
 };
 
 // Per-type width (height stays COMP_SIZE)
 const COMP_W = {
   laser:60, aom:64, eom:64, mirror:46, pbs:46,
-  hwp:56, qwp:56, dump:46, fiberin:60, fiberout:60
+  hwp:56, qwp:56, dump:46
 };
 
 function drawComp(c) {
@@ -511,9 +515,6 @@ function traceRays() {
   const lasers = components.filter(c => c.type === 'laser');
   const beams = [];
 
-  // clear FiberIn stored beams before tracing
-  components.filter(c => c.type === 'fiberin').forEach(c => c._beam = null);
-
   for (const laser of lasers) {
     const ang = laser.angle * Math.PI / 180;
     const initBeam = {
@@ -522,30 +523,12 @@ function traceRays() {
       freqs: [{ f: 0, power: laser.power || 1.0, color: wavelengthColor(laser.wavelength || 680), label: 'carrier' }],
       wavelength: laser.wavelength || 680,
       pol: laser.pol || 0,
+      jones: polToJones(laser.pol || 0),
       bounces: 0,
       segments: [],
       passedEOMs: new Set(),
     };
     traceBeam(initBeam, beams);
-  }
-
-  // Now emit from FiberOut components — match by channel to FiberIn
-  const fiberOuts = components.filter(c => c.type === 'fiberout');
-  for (const fo of fiberOuts) {
-    const fi = components.find(c => c.type === 'fiberin' && c.channel === fo.channel && c._beam);
-    if (!fi || !fi._beam) continue;
-    const ang = (fo.angle || 0) * Math.PI / 180;
-    const emitBeam = {
-      x: fo.x, y: fo.y,
-      dx: Math.cos(ang), dy: Math.sin(ang),
-      freqs: fi._beam.freqs,
-      wavelength: fi._beam.wavelength || 680,
-      pol: fi._beam.pol ?? 0,
-      bounces: 0,
-      segments: [],
-      passedEOMs: new Set(),
-    };
-    traceBeam(emitBeam, beams);
   }
 
   return beams;
@@ -560,7 +543,12 @@ function wavelengthColor(wl) {
   if (wl < 590) return '#aaff44';
   if (wl < 625) return '#ffdd44';
   if (wl < 700) return '#ff4455';
-  return '#cc2233';
+  if (wl < 760) return '#cc2233';
+  if (wl < 850) return '#992244';
+  if (wl < 950) return '#771133';
+  if (wl < 1020) return '#550022';
+  if (wl < 1070) return '#4a1a44';
+  return '#331133';
 }
 
 function hitTest(x, y, dx, dy, exclude) {
@@ -744,13 +732,6 @@ function traceBeam(beam, allBeams, excludeComp) {
   // Beam hit EOM/AOM from wrong direction — blocked, terminate
   if (hit.blocked) { beam.terminal = 'blocked'; allBeams.push(beam); return; }
 
-  // Fiber In: absorb beam, store on component for FiberOut to pick up
-  if (c.type === 'fiberin') {
-    beam.terminal = 'fiberin';
-    c._beam = { freqs: beam.freqs, pol: beam.pol ?? 0, wavelength: beam.wavelength };
-    allBeams.push(beam);
-    return;
-  }
 
   if (c.type === 'mirror') {
     const refl = reflect(beam.dx, beam.dy, hit.nx, hit.ny);
@@ -817,49 +798,87 @@ function traceBeam(beam, allBeams, excludeComp) {
   }
 
   if (c.type === 'pbs') {
-    // PBS diagonal face runs at angle c.angle (degrees)
-    // Normal to the face = c.angle + 90°
-    // Both transmitted and reflected beams originate from the PBS centre (c.x, c.y)
-    // so the split point is always the centre of the cube regardless of entry face.
-    const polRad = (beam.pol || 0) * Math.PI / 180;
-    const T = Math.cos(polRad) ** 2;  // H pol transmits
-    const R = Math.sin(polRad) ** 2;  // V pol reflects
+    // PBS — Jones matrix projection operator
+    // P-pol axis = c.angle (deg).  e_p = [cos θ, sin θ] transmits straight through.
+    // S-pol = e_s = [-sin θ, cos θ] exits 90° to input direction (never back).
+    // P_p + P_s = I  →  energy conserved for any input Jones vector.
+    const theta = (c.angle || 45) * Math.PI / 180;
+    const cp = Math.cos(theta), sp = Math.sin(theta);
 
-    // normal to the PBS face
-    const normAng = (c.angle + 90) * Math.PI / 180;
-    const nnx = Math.cos(normAng), nny = Math.sin(normAng);
+    const jIn = beam.jones ?? polToJones(beam.pol || 0);
+    const ExR = jIn[0], ExI = jIn[1], EyR = jIn[2], EyI = jIn[3];
 
-    // transmitted: same direction from centre, H pol
-    if (T > 0.001) {
-      const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * T }));
-      const nbT = { ...beam, x: c.x + beam.dx * PUSH, y: c.y + beam.dy * PUSH, pol:0, freqs:transmitFreqs, bounces:beam.bounces+1, segments:[] };
+    // Complex projections onto e_p and e_s
+    const dotPr = cp*ExR + sp*EyR,  dotPi = cp*ExI + sp*EyI;
+    const dotSr = -sp*ExR + cp*EyR, dotSi = -sp*ExI + cp*EyI;
+    const I_trans = dotPr*dotPr + dotPi*dotPi;
+    const I_refl  = dotSr*dotSr + dotSi*dotSi;
+    const I_total = I_trans + I_refl;
+    if (I_total < 1e-9) { allBeams.push(beam); return; }
+
+    const PBS_PUSH = (COMP_SIZE / 2) + 10;
+
+    // Transmitted: P-polarised, straight through from centre
+    if (I_trans > 0.001 * I_total) {
+      const jonesT = [ dotPr*cp, dotPi*cp, dotPr*sp, dotPi*sp ];
+      const transmitFreqs = beam.freqs.map(f => ({ ...f, power: f.power * (I_trans/I_total) }));
+      const nbT = { ...beam,
+        x: c.x + beam.dx * PBS_PUSH, y: c.y + beam.dy * PBS_PUSH,
+        pol: jonesToPol(jonesT), jones: jonesT,
+        freqs: transmitFreqs, bounces: beam.bounces+1, segments: [] };
       traceBeam(nbT, allBeams, c);
     }
-    // reflected: reflection direction from centre, V pol
-    if (R > 0.001) {
-      const ref = reflect(beam.dx, beam.dy, nnx, nny);
-      const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * R }));
-      const nbR = { ...beam, x: c.x + ref.dx * PUSH, y: c.y + ref.dy * PUSH, dx:ref.dx, dy:ref.dy, pol:90, freqs:reflectFreqs, bounces:beam.bounces+1, segments:[] };
+
+    // Reflected: S-polarised, exits 90° — CW or CCW based on which side of PBS axis
+    if (I_refl > 0.001 * I_total) {
+      const cross = beam.dx * sp - beam.dy * cp;
+      const refDir = cross >= 0
+        ? { dx:  beam.dy, dy: -beam.dx }
+        : { dx: -beam.dy, dy:  beam.dx };
+      const jonesS = [ dotSr*(-sp), dotSi*(-sp), dotSr*cp, dotSi*cp ];
+      const reflectFreqs = beam.freqs.map(f => ({ ...f, power: f.power * (I_refl/I_total) }));
+      const nbR = { ...beam,
+        x: c.x + refDir.dx * PBS_PUSH, y: c.y + refDir.dy * PBS_PUSH,
+        dx: refDir.dx, dy: refDir.dy,
+        pol: jonesToPol(jonesS), jones: jonesS,
+        freqs: reflectFreqs, bounces: beam.bounces+1, segments: [] };
       traceBeam(nbR, allBeams, c);
     }
     allBeams.push(beam);
     return;
   }
 
-  // HWP: rotates polarisation  θ_out = 2*fast_axis - θ_in
+  // HWP: Jones matrix M = [[cos2f, sin2f],[sin2f,-cos2f]]
   if (c.type === 'hwp') {
-    const fa = c.fast_axis || 0;
-    const newPol = ((2 * fa - (beam.pol || 0)) % 360 + 360) % 360;
-    const nb = { ...beam, x:ox, y:oy, pol:newPol, bounces:beam.bounces+1, segments:[] };
+    const fa = (c.fast_axis || 0) * Math.PI / 180;
+    const c2 = Math.cos(2*fa), s2 = Math.sin(2*fa);
+    const jIn = beam.jones ?? polToJones(beam.pol || 0);
+    const newJ = [
+       c2*jIn[0] + s2*jIn[2],  c2*jIn[1] + s2*jIn[3],
+       s2*jIn[0] - c2*jIn[2],  s2*jIn[1] - c2*jIn[3]
+    ];
+    const newPol = jonesToPol(newJ);
+    const nb = { ...beam, x:ox, y:oy, pol:newPol, jones:newJ, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
     traceBeam(nb, allBeams, c);
     return;
   }
 
+  // QWP: Jones matrix M_QWP(fa) = R(-fa)*[[1,0],[0,i]]*R(fa)
   if (c.type === 'qwp') {
-    const fa = c.fast_axis || 45;
-    const newPol = ((beam.pol || 0) + fa) % 360;
-    const nb = { ...beam, x:ox, y:oy, pol:newPol, bounces:beam.bounces+1, segments:[] };
+    const fa = (c.fast_axis || 45) * Math.PI / 180;
+    const cf = Math.cos(fa), sf = Math.sin(fa);
+    const jIn = beam.jones ?? polToJones(beam.pol || 0);
+    const ExR = jIn[0], ExI = jIn[1], EyR = jIn[2], EyI = jIn[3];
+    // M = [[cf²+i·sf², (1-i)·sf·cf], [(1-i)·sf·cf, sf²+i·cf²]]
+    const newJ = [
+      cf*cf*ExR - sf*sf*ExI + sf*cf*EyR + sf*cf*EyI,
+      cf*cf*ExI + sf*sf*ExR + sf*cf*EyI - sf*cf*EyR,
+      sf*cf*ExR + sf*cf*ExI + sf*sf*EyR - cf*cf*EyI,
+      sf*cf*ExI - sf*cf*ExR + sf*sf*EyI + cf*cf*EyR
+    ];
+    const newPol = jonesToPol(newJ);
+    const nb = { ...beam, x:ox, y:oy, pol:newPol, jones:newJ, bounces:beam.bounces+1, segments:[] };
     allBeams.push(beam);
     traceBeam(nb, allBeams, c);
     return;
@@ -1005,6 +1024,18 @@ function render() {
       // polarisation marker
       drawPolMarker(seg);
 
+      // wavelength label on first segment
+      if (beam.segments.indexOf(seg) === 0 && beam.wavelength) {
+        const lx = seg.x1 + (seg.x2 - seg.x1) * 0.18;
+        const ly = seg.y1 + (seg.y2 - seg.y1) * 0.18;
+        ctx.save();
+        ctx.font = '10px IBM Plex Mono';
+        ctx.fillStyle = col + 'cc';
+        ctx.textAlign = 'center';
+        ctx.fillText(beam.wavelength + 'nm', lx, ly - 10);
+        ctx.restore();
+      }
+
       // if multiple freqs, draw thin lines alongside
       if (seg.freqs.length > 1) {
         seg.freqs.forEach((f, i) => {
@@ -1023,24 +1054,6 @@ function render() {
       }
     }
   }
-
-  // draw fiber links between matched FiberIn/Out pairs
-  const fiberIns = components.filter(c => c.type === 'fiberin');
-  components.filter(c => c.type === 'fiberout').forEach(fo => {
-    const fi = fiberIns.find(c => c.channel === fo.channel);
-    if (!fi) return;
-    ctx.save();
-    ctx.setLineDash([6, 5]);
-    ctx.strokeStyle = '#00c8ff44';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(fi.x, fi.y); ctx.lineTo(fo.x, fo.y); ctx.stroke();
-    ctx.setLineDash([]);
-    // midpoint label
-    ctx.font = '12px IBM Plex Mono'; ctx.fillStyle = '#00c8ff88';
-    ctx.textAlign = 'center';
-    ctx.fillText(`ch:${fi.channel}`, (fi.x+fo.x)/2, (fi.y+fo.y)/2 - 8);
-    ctx.restore();
-  });
 
   // components
   for (const c of components) drawComp(c);
@@ -1336,8 +1349,8 @@ function updateProps() {
   let html = `<div class="prop-row"><div class="prop-label">Type</div><div class="prop-val">${c.type.toUpperCase()}</div></div>`;
   html += propText('Label', 'label', c.label);
 
-  // mirror, pbs, hwp, qwp, fiberout have editable angle (not eom/aom — fixed vertical)
-  if (['mirror','pbs','hwp','qwp','fiberout'].includes(c.type)) {
+  // mirror, pbs, hwp, qwp have editable angle
+  if (['mirror','pbs','hwp','qwp'].includes(c.type)) {
     html += propNum('Angle (deg)', 'angle', c.angle ?? 0, 0, 360, 5);
   }
 
@@ -1373,16 +1386,12 @@ function updateProps() {
   }
   if (c.type === 'pbs') {
     const faceAng = c.angle ?? 45;
-    const normAng = faceAng + 90;
     html += `<div class="prop-section">
-      <div class="prop-label">Face angle</div>
-      <div class="prop-val" style="color:var(--beam)">${faceAng}° — reflected beam at ${normAng % 360}°</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6">
-        Face runs at <b>${faceAng}°</b>.<br>
-        Transmitted → same direction as input.<br>
-        Reflected → normal at <b>${normAng%360}°</b>.<br>
-        T = cos²(pol)，R = sin²(pol)<br>
-        pol=0° (H) → 100% T &nbsp; pol=90° (V) → 100% R
+      <div class="prop-label">Jones Matrix PBS</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.8">
+        P-pol (${faceAng}°) → transmits straight through<br>
+        S-pol (${(faceAng+90)%360}°) → exits 90° to input<br>
+        P_p + P_s = I &nbsp;(energy conserved)
       </div>
     </div>`;
   }
@@ -1397,14 +1406,6 @@ function updateProps() {
   }
   if (c.type === 'mirror') {
     html += propNum('Reflectivity', 'reflectivity', c.reflectivity, 0.5, 1.0, 0.01);
-  }
-  if (c.type === 'fiberin' || c.type === 'fiberout') {
-    html += propText('Channel ID', 'channel', c.channel ?? 'A');
-    html += `<div style="font-size:10px;color:var(--muted);margin-top:4px">Pair FiberIn + FiberOut with same Channel ID.<br>Light enters FiberIn → exits FiberOut.</div>`;
-    if (c.type === 'fiberin' && c._beam) {
-      html += `<div class="prop-section"><div class="prop-label">Coupled beam</div>`;
-      html += `<div class="prop-val" style="color:var(--beam)">${c._beam.freqs.length} freq component(s)</div></div>`;
-    }
   }
 
   html += `<button class="del-btn" onclick="deleteSelected()">Delete Component</button>`;
@@ -1754,9 +1755,12 @@ function drawBetaCanvas() {
     }
   });
 }
-resize();
-renderTargetList();
-loadExample();
+// Defer init until after first layout paint so getBoundingClientRect() returns real values
+requestAnimationFrame(() => {
+  resize();
+  renderTargetList();
+  loadExample();
+});
 </script>
 </body>
 </html>
