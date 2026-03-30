@@ -336,8 +336,8 @@ const COMP_SIZE = 46;
 function mkComp(type, x, y) {
   const base = { id: nextId++, type, x, y, angle: 0 };
   if (type === 'laser')  return { ...base, wavelength: 680, power: 1.0, pol: 0, label:'Laser' };
-  if (type === 'eom')    return { ...base, angle: 270, rf: 4.696, beta: 1.435, enabled: true, label:'EOM' };
-  if (type === 'aom')    return { ...base, angle: 270, freq: 200, order: 1, passes: 2, label:'AOM' };
+  if (type === 'eom')    return { ...base, angle: 90, rf: 4.696, beta: 1.435, enabled: true, label:'EOM' };
+  if (type === 'aom')    return { ...base, angle: 90, freq: 200, order: 1, efficiency: 0.85, label:'AOM' };
   if (type === 'mirror') return { ...base, angle: 45, reflectivity: 1.0, label:'Mirror' };
   if (type === 'pbs')    return { ...base, angle: 45, tx_axis: 0, label:'PBS' };
   if (type === 'hwp')    return { ...base, fast_axis: 22.5, label:'HWP' };
@@ -606,68 +606,31 @@ function intersectComp(rx, ry, dx, dy, c) {
 
   // All others: axis-aligned bounding box (AABB)
 
-  // EOM and AOM: one-way with absorbing OUT face.
-  // c.angle defines IN→OUT axis direction (the "long" axis of the component).
-  // We work in the component's LOCAL coordinate frame so rotation is handled correctly.
-  //
-  // Local axes:
-  //   u-axis = IN→OUT direction (along c.angle)
-  //   v-axis = perpendicular to u
-  // In local space the component is a rectangle: u ∈ [-hw, +hw], v ∈ [-hh, +hh]
-  // A beam enters from the IN face (u = -hw) and exits from the OUT face (u = +hw).
-  //
-  // Rules:
-  //   local_du > +0.7 → coming from IN side → modulate
-  //   local_du < -0.7 → coming from OUT side → ABSORB / blocked
-  //   |local_du| ≤ 0.7 → side entry → transparent (return null)
+  // EOM and AOM: simple AABB — any beam hitting the box is modulated, no directional restriction.
   if (c.type === 'eom' || c.type === 'aom') {
-    const axAng = (c.angle || 0) * Math.PI / 180;
-    // Unit vectors of local u (IN→OUT) and v (perpendicular) axes in world space
-    const uX = Math.cos(axAng), uY = Math.sin(axAng);
-    const vX = -uY,             vY =  uX;
-
-    // Project beam direction onto local axes
-    const local_du = dx * uX + dy * uY;  // component of beam along IN→OUT
-    const local_dv = dx * vX + dy * vY;  // component along perpendicular
-
-    if (local_du > -0.7 && local_du < 0.7) return null; // side/oblique → transparent
-
-    // Project ray origin (relative to component centre) onto local axes
-    const relX = rx - c.x, relY = ry - c.y;
-    const local_ru = relX * uX + relY * uY;
-    const local_rv = relX * vX + relY * vY;
-
-    // Component half-extents in local space
-    const hw2 = (COMP_W[c.type] || COMP_SIZE) / 2;  // half-length along u (IN→OUT)
-    const hh2 = COMP_SIZE / 2;                        // half-width along v
-
-    // Slab intersection in local u coordinate
+    const hw2 = (COMP_W[c.type] || COMP_SIZE) / 2;
+    const hh2 = COMP_SIZE / 2;
+    const x1 = c.x - hw2, x2 = c.x + hw2;
+    const y1 = c.y - hh2, y2 = c.y + hh2;
     let tmin = -Infinity, tmax = Infinity;
-    if (Math.abs(local_du) < 1e-10) {
-      if (local_ru < -hw2 || local_ru > hw2) return null;
+    if (Math.abs(dx) < 1e-10) {
+      if (rx < x1 || rx > x2) return null;
     } else {
-      const t1 = (-hw2 - local_ru) / local_du;
-      const t2 = ( hw2 - local_ru) / local_du;
-      tmin = Math.max(tmin, Math.min(t1, t2));
-      tmax = Math.min(tmax, Math.max(t1, t2));
+      const tx1 = (x1 - rx) / dx, tx2 = (x2 - rx) / dx;
+      tmin = Math.max(tmin, Math.min(tx1, tx2));
+      tmax = Math.min(tmax, Math.max(tx1, tx2));
     }
-
-    // Slab intersection in local v coordinate
-    if (Math.abs(local_dv) < 1e-10) {
-      if (local_rv < -hh2 || local_rv > hh2) return null;
+    if (Math.abs(dy) < 1e-10) {
+      if (ry < y1 || ry > y2) return null;
     } else {
-      const t1 = (-hh2 - local_rv) / local_dv;
-      const t2 = ( hh2 - local_rv) / local_dv;
-      tmin = Math.max(tmin, Math.min(t1, t2));
-      tmax = Math.min(tmax, Math.max(t1, t2));
+      const ty1 = (y1 - ry) / dy, ty2 = (y2 - ry) / dy;
+      tmin = Math.max(tmin, Math.min(ty1, ty2));
+      tmax = Math.min(tmax, Math.max(ty1, ty2));
     }
-
     if (tmax < tmin || tmax < 1) return null;
     const bt = tmin > 1 ? tmin : tmax;
     if (bt < 1) return null;
-
-    if (local_du < 0) return { t: bt, nx: 0, ny: 0, blocked: true }; // OUT face → absorb
-    return { t: bt, nx: 0, ny: 0 }; // correct IN→OUT → modulate
+    return { t: bt, nx: 0, ny: 0 };
   }
 
   const hw = (COMP_W[c.type] || COMP_SIZE) / 2;
@@ -776,19 +739,57 @@ function traceBeam(beam, allBeams, excludeComp) {
 
   if (c.type === 'aom') {
     const passed = beam.passedEOMs || new Set();
-    if (passed.has(c.id)) {
-      const nb = { ...beam, x:ox, y:oy, bounces:beam.bounces+1, segments:[], passedEOMs: passed };
-      allBeams.push(beam);
-      traceBeam(nb, allBeams, c);
-      return;
+    const eta = Math.min(Math.max(c.efficiency ?? 0.85, 0), 1); // diffraction efficiency η
+    const freqShift = c.order * (c.freq / 1000); // Δf in GHz, sign = ±order
+    const aomName = c.label || 'AOM';
+
+    // ── 0th order: straight through, power reduced by (1 - η) ──────
+    if ((1 - eta) > 0.01) {
+      const zeroFreqs = beam.freqs.map(f => ({
+        ...f,
+        power: f.power * (1 - eta),
+        label: f.label  // same frequency, just attenuated
+      }));
+      const nb0 = {
+        ...beam,
+        x: ox, y: oy,
+        freqs: zeroFreqs,
+        bounces: beam.bounces + 1,
+        segments: [],
+        passedEOMs: new Set(passed)  // 0th order is NOT tracked as "passed" — can re-enter
+      };
+      traceBeam(nb0, allBeams, c);
     }
-    const shift = c.order * (c.freq / 1000) * c.passes;
-    const newFreqs = beam.freqs.map(f => ({ ...f, f: f.f + shift }));
-    const newPassed = new Set(passed);
-    newPassed.add(c.id);
-    const nb = { ...beam, x:ox, y:oy, freqs:newFreqs, bounces:beam.bounces+1, segments:[], passedEOMs: newPassed };
+
+    // ── nth order: deflected by Bragg angle, frequency shifted by ±n·f_RF ──
+    // Skip if already passed this AOM (avoid infinite double-pass loops)
+    if (!passed.has(c.id) && eta > 0.01) {
+      // Bragg angle: θ_B ≈ λ/(2Λ). We approximate by rotating beam direction by a small angle.
+      // In simulation we keep beam direction the same (AOM is inline),
+      // but mark the beam as "diffracted" so it's visually distinct.
+      // Physical deflection angle is ~mrad — negligible for path tracing.
+      const shiftedFreqs = beam.freqs.map(f => ({
+        ...f,
+        power: f.power * eta,
+        f: f.f + freqShift,
+        color: '#44dd88',
+        label: `[${aomName}] ${freqShift >= 0 ? '+' : ''}${freqShift.toFixed(3)}GHz`
+      }));
+      const newPassed = new Set(passed);
+      newPassed.add(c.id);
+      const nb1 = {
+        ...beam,
+        x: ox, y: oy,
+        freqs: shiftedFreqs,
+        bounces: beam.bounces + 1,
+        segments: [],
+        passedEOMs: newPassed,
+        hasAOM: true
+      };
+      traceBeam(nb1, allBeams, c);
+    }
+
     allBeams.push(beam);
-    traceBeam(nb, allBeams, c);
     return;
   }
 
@@ -1442,10 +1443,18 @@ function updateProps() {
   }
   if (c.type === 'aom') {
     html += propNum('RF Freq (MHz)', 'freq', c.freq, 20, 400, 1);
-    html += propNum('Order (±1)', 'order', c.order, -2, 2, 1);
-    html += propNum('Passes', 'passes', c.passes, 1, 4, 1);
-    const shift = c.order * c.freq * c.passes / 1000;
-    html += `<div class="prop-section"><div class="prop-label">Freq Shift</div><div class="prop-val" style="color:var(--green)">${shift >= 0?'+':''}${shift.toFixed(3)} GHz</div></div>`;
+    html += propNum('Order (±1)', 'order', c.order, -1, 1, 1);
+    html += propNum('Efficiency η', 'efficiency', c.efficiency ?? 0.85, 0.01, 1.0, 0.01);
+    const shift = c.order * c.freq / 1000;
+    const eta = c.efficiency ?? 0.85;
+    html += `<div class="prop-section">
+      <div class="prop-label">Bragg Diffraction Model</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;line-height:2">
+        <span style="color:var(--green)">● n=${c.order} order: &nbsp;ω + ${c.order>0?'+':''}${c.order}·Ω &nbsp;→ &nbsp;${shift>=0?'+':''}${shift.toFixed(3)} GHz &nbsp;power × η = ${(eta*100).toFixed(0)}%</span><br>
+        <span style="color:#667788">● 0th order: no shift &nbsp;→ &nbsp;power × (1−η) = ${((1-eta)*100).toFixed(0)}%</span><br>
+        <span style="color:var(--muted)">  ω_out = ω_in ± Ω &nbsp;(Doppler from moving grating)</span>
+      </div>
+    </div>`;
   }
   if (c.type === 'eom') {
     const on = c.enabled !== false;
@@ -1510,6 +1519,7 @@ function updateProps() {
 
   // attach listeners
   el.querySelectorAll('.prop-input').forEach(inp => {
+    inp.addEventListener('keydown', e => e.stopPropagation()); // prevent R/Delete hotkeys while editing
     inp.addEventListener('input', () => {
       const key = inp.dataset.key;
       const val = inp.type === 'number' ? parseFloat(inp.value) : inp.value;
@@ -1598,7 +1608,7 @@ function loadExample() {
   laser.wavelength=680; laser.angle=0; laser.pol=45; laser.label='680nm';
 
   const aom = mkComp('aom', X_aom, YM);
-  aom.freq=200; aom.order=1; aom.passes=2; aom.label='AOM';
+  aom.freq=200; aom.order=1; aom.efficiency=0.85; aom.label='AOM';
 
   // PBS1: face=45° → H transmits right, V reflects up
   const pbs1 = mkComp('pbs', X_pbs1, YM);
@@ -1691,8 +1701,15 @@ const TARGET_COLORS = ['#ffd166','#ff6b9d','#c77dff','#06d6a0','#f4a261','#48cae
 function addTarget() {
   const inp   = document.getElementById('target-input');
   const linp  = document.getElementById('target-label-input');
-  const val   = parseFloat(inp.value.replace(',','.'));
-  if (isNaN(val)) { inp.style.borderColor='var(--red)'; setTimeout(()=>inp.style.borderColor='',800); return; }
+  // trim whitespace, normalize minus sign (em-dash, en-dash → hyphen), replace comma decimal
+  const raw = inp.value.trim().replace(/[\u2212\u2013\u2014]/g, '-').replace(',', '.');
+  const val = parseFloat(raw);
+  if (isNaN(val) || raw === '' || raw === '-') {
+    inp.style.borderColor='var(--red)';
+    inp.style.boxShadow='0 0 0 2px rgba(255,68,102,.3)';
+    setTimeout(()=>{ inp.style.borderColor=''; inp.style.boxShadow=''; }, 1000);
+    return;
+  }
   const label = linp.value.trim() || `T${targetFreqs.length+1}`;
   const color = TARGET_COLORS[targetFreqs.length % TARGET_COLORS.length];
   targetFreqs.push({ f: val, label, color });
@@ -1702,6 +1719,7 @@ function addTarget() {
 }
 
 document.getElementById('target-input').addEventListener('keydown', e => {
+  e.stopPropagation(); // prevent global hotkeys (R, Delete) from firing while typing
   if (e.key === 'Enter') addTarget();
 });
 
