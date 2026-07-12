@@ -54,38 +54,6 @@ body::after{
 }
 main{position:relative;z-index:1}
 
-/* ── TOP NAV ── */
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:50;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:16px 34px;
-  background:linear-gradient(180deg, rgba(2,2,3,.86), rgba(2,2,3,.55) 70%, transparent);
-  backdrop-filter:blur(10px);
-  border-bottom:1px solid rgba(255,255,255,.07);
-}
-.nav-mark{
-  font-family:var(--font-display);font-weight:800;font-size:15px;
-  letter-spacing:.3em;text-transform:uppercase;color:var(--chrome-hi);
-}
-.nav-mark em{font-style:italic;font-weight:600;color:var(--muted2)}
-.nav-links{display:flex;gap:26px;align-items:center}
-.nav-links a{
-  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--muted);text-decoration:none;
-  transition:color .2s;
-}
-.nav-links a:hover{color:var(--chrome-hi)}
-.nav-cta{
-  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
-  color:#000 !important;text-decoration:none;
-  padding:8px 16px;
-  background:linear-gradient(180deg,var(--chrome-hi),var(--chrome-mid));
-  border:1px solid rgba(255,255,255,.55);
-  transition:box-shadow .25s, transform .2s;
-}
-.nav-cta:hover{box-shadow:0 0 22px rgba(220,228,245,.35);transform:translateY(-1px)}
-@media(max-width:720px){.nav-links a:not(.nav-cta){display:none}}
-
 /* ── HERO ── */
 .hero{
   min-height:100vh;
@@ -193,6 +161,10 @@ h1.wordmark em{
   .beam-pulse{animation:none;display:none}
   .wordmark-sheen::after{animation:none}
 }
+
+/* ── SCREEN ↔ TABLE MAPPING ── */
+.bm-map{stroke:#fff;stroke-width:1.3;fill:none;filter:url(#beamGlow)}
+.map-link{stroke:rgba(255,255,255,.5);stroke-width:1.2;stroke-dasharray:5 6}
 
 /* ── SECTIONS ── */
 section{padding:110px 24px;max-width:1120px;margin:0 auto}
@@ -349,16 +321,6 @@ footer{
 </head>
 <body>
 
-<nav>
-  <div class="nav-mark"><em>miss</em>align</div>
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#components">Components</a>
-    <a href="#engine">Physics Engine</a>
-    <a class="nav-cta" href="simulator.html">Launch →</a>
-  </div>
-</nav>
-
 <main>
 
 <!-- ═══════════ HERO ═══════════ -->
@@ -372,11 +334,11 @@ footer{
   <a class="cta" href="simulator.html">Enter the Simulator <span class="arrow">→</span></a>
   <div class="cta-note">No install · Runs entirely in your browser</div>
 
-  <!-- signature: animated optical bench -->
+  <!-- signature: animated optical bench → output → computer → real table -->
   <div class="bench" aria-hidden="true">
-    <svg viewBox="0 0 920 214" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 920 500" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <filter id="beamGlow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="960" height="254">
+        <filter id="beamGlow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="960" height="540">
           <feGaussianBlur stdDeviation="2.2" result="b"/>
           <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
@@ -388,43 +350,67 @@ footer{
         </linearGradient>
       </defs>
 
-      <!-- beam: laser → M1 (up) → M2 (right) → PBS → lens → AOM → out -->
+      <!-- ══ OPTICAL PATH ══ -->
       <path class="beam-path" d="M96 162 H 200 V 90 H 880" opacity=".9"/>
-      <!-- PBS reflected arm: "\" diagonal sends the beam DOWN into the dump -->
       <path class="beam-path" d="M418 90 V 172" opacity=".8"/>
-      <!-- traveling pulses: transmitted + reflected arm -->
       <path class="beam-pulse" d="M96 162 H 200 V 90 H 880"/>
       <path class="beam-pulse pulse-refl" d="M418 90 V 172"/>
 
-      <!-- LASER (lower rail) -->
       <rect class="comp comp-fill" x="30" y="148" width="66" height="28" rx="2"/>
       <text x="30" y="196">Laser</text>
 
-      <!-- MIRROR 1: 45° "/" — turns the beam upward -->
       <line class="comp" x1="186" y1="176" x2="214" y2="148" stroke-width="3"/>
       <text x="228" y="170">Mirror</text>
 
-      <!-- MIRROR 2: 45° "/" — turns the beam right (periscope pair) -->
       <line class="comp" x1="186" y1="104" x2="214" y2="76" stroke-width="3"/>
       <text x="164" y="62">Mirror</text>
 
-      <!-- PBS cube: diagonal "\" reflects downward -->
       <rect class="comp" x="400" y="72" width="36" height="36"/>
       <line class="comp" x1="400" y1="72" x2="436" y2="108"/>
       <text x="398" y="134">PBS</text>
 
-      <!-- beam dump absorbs the reflected arm -->
       <rect class="comp comp-fill" x="404" y="172" width="28" height="14" rx="1"/>
       <line class="comp" x1="404" y1="186" x2="432" y2="186" stroke-width="3"/>
       <text x="396" y="206">Dump</text>
 
-      <!-- LENS -->
       <path class="comp" d="M560 68 C 568 82, 568 98, 560 112 C 552 98, 552 82, 560 68 Z"/>
       <text x="548" y="134">Lens</text>
 
-      <!-- AOM -->
       <rect class="comp comp-fill" x="672" y="76" width="56" height="28" rx="2"/>
       <text x="676" y="126">AOM</text>
+
+      <text x="846" y="68">Output</text>
+
+      <!-- ══ OUTPUT → COMPUTER ══ -->
+      <path class="map-link" d="M880 90 H 902 V 258 H 135 V 314" fill="none"/>
+      <path class="comp" d="M127 304 L 135 316 L 143 304" fill="none"/>
+
+      <!-- ══ COMPUTER (laptop) ══ -->
+      <rect class="comp" x="62" y="326" width="146" height="92" rx="4"/>
+      <path class="comp" d="M48 418 H 222 L 238 438 H 32 Z"/>
+      <!-- mini beam layout on screen -->
+      <rect class="comp" x="76" y="390" width="20" height="9" rx="1"/>
+      <line class="comp" x1="106" y1="400" x2="116" y2="390" stroke-width="2"/>
+      <line class="comp" x1="106" y1="356" x2="116" y2="346" stroke-width="2"/>
+      <rect class="comp" x="146" y="344" width="13" height="13"/>
+      <path class="bm-map" d="M96 395 H 111 V 351 H 196"/>
+      <text x="62" y="468">Design on screen</text>
+
+      <!-- ══ COMPUTER → REAL TABLE ══ -->
+      <line class="map-link" x1="268" y1="382" x2="472" y2="382"/>
+      <path class="comp" d="M460 374 L 472 382 L 460 390" fill="none"/>
+      <text x="356" y="366" style="fill:var(--muted2)">1 : 1</text>
+
+      <!-- ══ REAL OPTICAL TABLE (side view) ══ -->
+      <rect class="comp comp-fill" x="500" y="394" width="212" height="10" rx="1"/>
+      <line class="comp" x1="516" y1="404" x2="516" y2="442"/>
+      <line class="comp" x1="696" y1="404" x2="696" y2="442"/>
+      <rect class="comp" x="512" y="376" width="30" height="13" rx="1"/>
+      <line class="comp" x1="578" y1="390" x2="590" y2="378" stroke-width="2"/>
+      <rect class="comp" x="622" y="374" width="16" height="16"/>
+      <path class="comp" d="M676 372 C 680 378, 680 386, 676 392 C 672 386, 672 378, 676 372 Z"/>
+      <path class="bm-map" d="M542 383 H 700"/>
+      <text x="500" y="468">Build on the real table</text>
     </svg>
   </div>
 </header>
