@@ -32,3 +32,10 @@ Cmd+Shift+R) after editing it; the live scene autosaves to `localStorage`.
   where behavior matters, headless Chrome over CDP against a real scene.
 - One commit per verified edit round, so `simulator_original.html` stops being the
   only way back.
+- **Nothing is left untracked**: [tools/git-autocommit.sh](tools/git-autocommit.sh)
+  runs from a Claude Code `Stop` hook (`.claude/settings.json`) and commits any
+  outstanding change — yours or Claude's — as `auto: N file(s) changed`. It never
+  pushes and skips a repo mid-merge/rebase. Run it by hand any time; disable it by
+  removing the hook (review via `/hooks`).
+- The repo is **local only** — no remote is configured, so this is version history,
+  not a backup.
