@@ -1,9 +1,9 @@
 # Handover — frequency_shift_simulator (as of 2026-08-08, rev 2)
 
 ## Files & rules
-- `frequency_shift_simulator-main/simulator.html` — the WORKING file (all edits go here). Single self-contained
+- `simulator/simulator.html` — the WORKING file (all edits go here). Single self-contained
   HTML app, ~13.5k lines, one main `<script>` block. `index.html` is a landing page only.
-- `frequency_shift_simulator-main/simulator_original.html` — pristine original. **Never edit.** Used to restore
+- `simulator/simulator_original.html` — pristine original. **Never edit.** Used to restore
   sections verbatim when a change is rejected ("go back to the original X code").
 - No Node on this machine; verify edits with a Python script comparing brace/backtick balance + difflib hunks
   between original and working file (baseline raw-count offsets: `()` = −2, `[]` = +1).

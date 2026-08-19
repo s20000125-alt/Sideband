@@ -1,6 +1,6 @@
 # Simulator Changelog — frequency_shift_simulator
 
-All modifications live in `frequency_shift_simulator-main/simulator.html`.
+All modifications live in `simulator/simulator.html`.
 `simulator_original.html` is the untouched upstream file and is never edited.
 Verification after every edit round: Python bracket/backtick balance check against the original
 (baseline offsets `()` = −2, `[]` = +1, `{}` = 0, backticks even) — passed at every step.
@@ -62,7 +62,7 @@ Verification after every edit round: Python bracket/backtick balance check again
 - **Board rotation** — 90° steps about the center (w/h swap, origin re-snapped to the 25 mm grid);
   locked boards rotate their optics too (positions + optical angles); MOT geometry rotates with the plate.
 
-### Nanofiber-MOT board (from `breadboard/NanofiberMOTAssembly.STL`)
+### Nanofiber-MOT board (from `assets/breadboard/NanofiberMOTAssembly.STL`)
 - Geometry extracted offline from the 27.5 MB / 550k-triangle STL (not embedded — 2D only by decision).
 - **Keep-out**: only the circular chamber reaches the plate (max radius 90.3 mm around the center) —
   the nanofiber support overhangs from above, so the plate under it stays usable. Forbid radius 95 mm;
@@ -134,7 +134,7 @@ Verification after every edit round: Python bracket/backtick balance check again
 ## Session 2026-08-19 (second session)
 
 Verification this session: in addition to the balance check, changes were tested end-to-end in headless
-Chrome (CDP) against the real page and the lab's saved scene (`IAMS_Yb_Lab_2026-08-19-2.json`).
+Chrome (CDP) against the real page and the lab's saved scene (`scenes/IAMS_Yb_Lab_2026-08-19_1018.json`, formerly `IAMS_Yb_Lab_2026-08-19-2.json`).
 
 ### MOT chamber
 - **Dispenser-side window is opaque** — the flat carrying the long ⌀34 dispenser tube (270° + board
