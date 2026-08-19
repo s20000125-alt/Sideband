@@ -202,3 +202,55 @@ Chrome (CDP) against the real page and the lab's saved scene (`scenes/IAMS_Yb_La
   (railroad style — the standard two-color convention in beam-path figures). Single-color stretches stay on
   the center line; the small jog where a color rejoins the center lands under an optic's white symbol.
   Verified on the lab scene: both MOT-arm colors now visible along the shared paths, labels still clear.
+
+---
+
+## Session 2026-08-20
+
+### Cylindrical lens component (`cylens`) + astigmatic beam tracking
+New optic with a **selectable powered axis** and every feature the spherical lens has
+(focal length incl. negative f, angle, group rotation, position fine-tune, "z on beam",
+hover label, `_lastHit` beam readout, schematic export symbol, 3D mesh, assist evaluation,
+scan-parameter selector, ABCD/cavity handling).
+
+- **Axis selector** — `cyl_axis`: `'h'` = in-plane (board plane / horizontal), `'v'` = out-of-plane
+  (vertical, ⊥ board). The cylinder axis itself is perpendicular to the chosen power axis.
+  An in-plane cylinder focuses the width the 2D canvas draws and steers off-centre beams
+  (same paraxial −y/f kick as the spherical lens); an out-of-plane cylinder leaves the top view
+  *and* the chief-ray direction untouched by design — a vertical kick is unrepresentable in a
+  top-view engine — and reshapes only the out-of-plane axis.
+- **Astigmatism** — the engine's `q` is now explicitly the IN-PLANE axis; the out-of-plane axis is
+  carried as `beam.qa`, an **offset** (`q_vertical = q + qa`, `null` = round). The offset is exactly
+  invariant under free propagation (both axes advance `re` by the same `d`), which is why it is stored
+  as a difference: every `{...beam}` spread and all ~20 `qPropagateFree` sites stay correct with no
+  extra bookkeeping, and a scene with no cylindrical lens has `qa == null` everywhere. Only elements
+  with power touch it — spherical lens / curved mirror re-map it through the identical ABCD
+  (`_qaThroughShared`), a cylinder sets it per-axis (`_qaFromAxisLens`), single-mode fiber drops it
+  to `null` (the output is round), a linked V-mirror periscope may exchange the axes.
+- **w(z) plot** — second, dashed envelope for the out-of-plane axis, drawn only when the beam is
+  astigmatic, with a legend. The w-scale now fits the larger of the two axes, and the adaptive waist
+  clustering also refines around the *out-of-plane* waist (which sits at a different z).
+- **Fiber coupling is now astigmatism-aware** — the old η = 4·zR·zRf/((zR+zRf)²+dz²) is the *square*
+  of the 1D overlap, so it is replaced by η = η₁D(in-plane)·η₁D(out-of-plane), i.e. the geometric mean
+  of the two per-axis efficiencies. Collapses to the original expression bit-for-bit for a round beam.
+  Panel gains both axis radii, the ellipticity, and a "circularise with a cylindrical pair first" note.
+- **Periscope axis exchange** — a linked V-mirror pair preserves the two transverse axes when the exit
+  azimuth matches the entry one and exchanges them at 90°; the rule snaps to the nearer of those two
+  (intermediate azimuths would *rotate* the profile, which needs general astigmatism with cross terms).
+- **`w_v_mm` / `w_v_um`** added to the beam-trace data export.
+- Scalar in-plane tools (ABCD chain, cavity eigenmode) treat an out-of-plane cylinder as the identity
+  and say so in their element labels.
+
+### Verification
+- Bracket/backtick balance matches the original baseline after every edit round.
+- All 6 inline `<script>` blocks parse (JavaScriptCore via `osascript -l JavaScript`).
+- 28 numeric physics checks pass: crossed cylinders of equal f reproduce a spherical lens on *both*
+  axes; `qa` invariance under free propagation; spherical re-map equals direct computation; η reduces
+  exactly to the old formula when round and equals the geometric mean when not; periscope rule.
+- 25 in-browser end-to-end checks (headless Chrome over CDP) pass with zero console errors: an in-plane
+  cylinder's in-plane q matches a spherical lens of the same f to 1e-9 while its out-of-plane axis keeps
+  diverging; an out-of-plane cylinder leaves the canvas width identical to the no-lens case and does not
+  steer the chief ray; render / w(z) plot / schematic SVG / 3D mesh / assist all exercised.
+- **Zero regression on a real scene** — the 179-component lab layout (`IAMS_Yb_Lab_2026-08-19_1152`)
+  traces to a bit-identical fingerprint before vs. after: 255 beams, every segment's geometry and
+  q(re, im, w1, w2), all 20 fiber coupling efficiencies, all component hit readouts.
