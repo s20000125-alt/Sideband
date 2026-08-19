@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MISSALIGN — Optical Alignment Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#020203;
+  --panel:rgba(255,255,255,0.025);
+  --border:rgba(255,255,255,0.14);
+  --border-bright:rgba(255,255,255,0.38);
+  --text:#EDEDF0;
+  --muted:#8A8A92;
+  --muted2:#B7B7BE;
+  --chrome-hi:#FAFAFC;
+  --chrome-mid:#9EA1AA;
+  --chrome-lo:#585B64;
+  --beam:#FFFFFF;
+  --font-display:'Playfair Display', Georgia, serif;
+  --font-ui:'Inter', sans-serif;
+  --font-mono:'JetBrains Mono', monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-ui);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:rgba(255,255,255,.9);color:#000}
+
+/* ambient metallic backdrop */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1100px 520px at 50% -8%, rgba(160,175,205,.10), transparent 62%),
+    radial-gradient(900px 600px at 85% 108%, rgba(120,130,155,.07), transparent 60%),
+    radial-gradient(700px 500px at 8% 60%, rgba(255,255,255,.03), transparent 55%);
+}
+/* fine grid, like an optical breadboard */
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 30%, #000 30%, transparent 100%);
+  -webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 30%, #000 30%, transparent 100%);
+}
+main{position:relative;z-index:1}
+
+/* ── HERO ── */
+.hero{
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:120px 24px 60px;position:relative;
+}
+.hero-eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.42em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:26px;
+  display:flex;align-items:center;gap:14px;
+}
+.hero-eyebrow::before,.hero-eyebrow::after{
+  content:'';width:44px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--border-bright));
+}
+.hero-eyebrow::after{background:linear-gradient(90deg,var(--border-bright),transparent)}
+
+h1.wordmark{
+  font-family:var(--font-display);font-weight:800;
+  font-size:clamp(56px, 11.5vw, 148px);
+  line-height:.98;letter-spacing:.045em;text-transform:uppercase;
+  background:linear-gradient(180deg,
+    #FFFFFF 0%, #E9EAEE 28%, #A8ABB5 46%, #63666F 52%, #C9CCD4 60%, #F5F6F8 78%, #DADCE2 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  position:relative;
+  filter:drop-shadow(0 2px 22px rgba(190,200,225,.16));
+}
+h1.wordmark em{
+  font-style:italic;font-weight:700;letter-spacing:.02em;
+}
+.wordmark-sheen{
+  position:relative;display:inline-block;
+}
+.wordmark-sheen::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.5) 50%, transparent 70%);
+  background-size:250% 100%;
+  mix-blend-mode:overlay;
+  animation:sheen 6.5s ease-in-out infinite;
+}
+@keyframes sheen{
+  0%,55%{background-position:160% 0}
+  85%,100%{background-position:-60% 0}
+}
+
+/* metallic CTA */
+.cta{
+  margin-top:46px;display:inline-flex;align-items:center;gap:16px;
+  font-family:var(--font-mono);font-size:13px;letter-spacing:.3em;text-transform:uppercase;
+  color:#0a0a0c;text-decoration:none;
+  padding:19px 46px;position:relative;
+  background:linear-gradient(180deg,#FDFDFE 0%,#D6D8DE 45%,#AEB1BA 52%,#E8EAEE 100%);
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:0 0 0 1px rgba(0,0,0,.65), 0 8px 34px rgba(200,212,238,.14), inset 0 1px 0 rgba(255,255,255,.9);
+  transition:box-shadow .3s, transform .22s;
+}
+.cta:hover{
+  transform:translateY(-2px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.65), 0 10px 46px rgba(215,225,248,.34), inset 0 1px 0 #fff;
+}
+.cta .arrow{transition:transform .25s}
+.cta:hover .arrow{transform:translateX(6px)}
+.cta-note{
+  margin-top:16px;font-family:var(--font-mono);font-size:11px;
+  color:var(--muted);letter-spacing:.14em;
+}
+
+/* ── HERO OPTICAL BENCH (signature) ── */
+.bench{
+  width:min(920px,94vw);margin-top:66px;
+}
+.bench svg{width:100%;height:auto;display:block}
+.beam-path{
+  stroke:var(--beam);stroke-width:1.6;fill:none;
+  filter:url(#beamGlow);
+}
+.beam-dim{stroke-opacity:.5;stroke-width:1.1}
+.beam-pulse{
+  stroke:#fff;stroke-width:2.6;fill:none;stroke-linecap:round;
+  filter:url(#beamGlow);
+  stroke-dasharray:26 856;
+  animation:travel 4.2s linear infinite;
+}
+@keyframes travel{
+  from{stroke-dashoffset:882}
+  to{stroke-dashoffset:0}
+}
+.pulse-refl{
+  stroke-dasharray:18 82;
+  animation:travel-refl 4.2s linear infinite;
+}
+@keyframes travel-refl{
+  0%,42%{stroke-dashoffset:100;opacity:0}
+  43%{opacity:1}
+  62%{stroke-dashoffset:0;opacity:1}
+  63%,100%{stroke-dashoffset:0;opacity:0}
+}
+.comp{stroke:rgba(255,255,255,.7);stroke-width:1.4;fill:rgba(255,255,255,.04)}
+.comp-fill{fill:url(#metal)}
+.bench text{
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;
+  fill:var(--muted);text-transform:uppercase;
+}
+@media (prefers-reduced-motion: reduce){
+  .beam-pulse{animation:none;display:none}
+  .wordmark-sheen::after{animation:none}
+}
+
+/* ── SCREEN ↔ TABLE MAPPING ── */
+.bm-map{stroke:#fff;stroke-width:1.3;fill:none;filter:url(#beamGlow)}
+.map-link{stroke:rgba(255,255,255,.5);stroke-width:1.2;stroke-dasharray:5 6}
+
+/* ── SECTIONS ── */
+section{padding:110px 24px;max-width:1120px;margin:0 auto}
+.sec-head{margin-bottom:58px}
+.sec-eyebrow{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.4em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:18px;
+  display:flex;align-items:center;gap:14px;
+}
+.sec-eyebrow::before{content:'';width:34px;height:1px;background:var(--border-bright)}
+h2{
+  font-family:var(--font-display);font-weight:700;
+  font-size:clamp(30px,4.4vw,46px);letter-spacing:.03em;
+  background:linear-gradient(180deg,#FFF 10%,#C3C6CE 55%,#8B8E97 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.sec-desc{margin-top:18px;color:var(--muted2);line-height:2;max-width:640px;font-size:15px}
+
+/* ── FEATURES ── */
+.features{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:1px;background:var(--border);border:1px solid var(--border);
+}
+.feature{
+  background:linear-gradient(160deg, rgba(16,17,20,.96), rgba(6,6,8,.96));
+  padding:36px 30px 40px;position:relative;overflow:hidden;
+  transition:background .3s;
+}
+.feature::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);
+  opacity:0;transition:opacity .3s;
+}
+.feature:hover::before{opacity:1}
+.feature:hover{background:linear-gradient(160deg, rgba(24,25,30,.96), rgba(8,8,10,.96))}
+.feature .f-num{
+  font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.2em;
+}
+.feature h3{
+  font-family:var(--font-display);font-size:20px;font-weight:700;
+  margin:16px 0 14px;color:var(--chrome-hi);letter-spacing:.03em;
+}
+.feature p{font-size:13.5px;line-height:1.95;color:var(--muted2)}
+.feature code{
+  font-family:var(--font-mono);font-size:12px;color:var(--chrome-hi);
+  background:rgba(255,255,255,.06);padding:1px 6px;border:1px solid rgba(255,255,255,.1);
+}
+
+/* ── COMPONENT PHYSICS GRID ── */
+.comps{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));
+  gap:20px;
+}
+.comp-card{
+  border:1px solid var(--border);
+  background:
+    linear-gradient(150deg, rgba(255,255,255,.05), rgba(255,255,255,0) 42%),
+    linear-gradient(180deg, rgba(13,14,17,.9), rgba(4,4,6,.94));
+  padding:26px 24px 28px;position:relative;
+  transition:border-color .25s, transform .25s, box-shadow .3s;
+}
+.comp-card:hover{
+  border-color:var(--border-bright);
+  transform:translateY(-3px);
+  box-shadow:0 14px 40px rgba(0,0,0,.6), 0 0 28px rgba(200,212,238,.06);
+}
+.comp-card .icon{
+  height:74px;display:flex;align-items:center;margin-bottom:18px;
+}
+.comp-card .icon svg{height:64px;width:auto;overflow:visible}
+.comp-card .icon .ln{stroke:rgba(255,255,255,.75);stroke-width:1.3;fill:none}
+.comp-card .icon .ln-fill{fill:rgba(255,255,255,.05);stroke:rgba(255,255,255,.75);stroke-width:1.3}
+.comp-card .icon .bm{stroke:#fff;stroke-width:1.5;fill:none;filter:drop-shadow(0 0 4px rgba(255,255,255,.55))}
+.comp-card .icon .bm-dim{stroke:rgba(255,255,255,.45);stroke-width:1.1;fill:none;stroke-dasharray:3 4}
+.comp-card .tag{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.26em;
+  color:var(--muted);text-transform:uppercase;
+}
+.comp-card h3{
+  font-family:var(--font-display);font-size:19px;font-weight:700;
+  color:var(--chrome-hi);margin:8px 0 12px;letter-spacing:.02em;
+}
+.comp-card p{font-size:13px;line-height:1.95;color:var(--muted2)}
+.comp-card .cmath{
+  margin-top:16px;padding:14px 10px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.025);
+  font-family:var(--font-mono);font-size:12.5px;color:var(--chrome-hi);
+  display:flex;align-items:center;justify-content:center;gap:4px 9px;flex-wrap:wrap;
+  text-shadow:0 0 10px rgba(220,230,250,.15);line-height:1.5;
+}
+.comp-card .cmath .frac .num{padding:0 5px 1px}
+.comp-card .cmath .frac .den{padding:1px 5px 0}
+.comp-card .cmath sup,.comp-card .cmath sub{font-size:.7em}
+.comp-card .phys{
+  margin-top:14px;padding-top:13px;border-top:1px dashed rgba(255,255,255,.14);
+  font-family:var(--font-mono);font-size:11.5px;color:var(--muted);
+  letter-spacing:.03em;line-height:1.8;
+}
+
+/* ── ENGINE / FORMULAS ── */
+.engine{
+  display:grid;grid-template-columns:1fr 1fr;gap:20px;
+}
+@media(max-width:820px){.engine{grid-template-columns:1fr}}
+.formula{
+  border:1px solid var(--border);padding:34px 32px;
+  background:linear-gradient(165deg, rgba(255,255,255,.04), transparent 45%), rgba(6,6,8,.9);
+}
+.formula .tag{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.3em;color:var(--muted);
+  text-transform:uppercase;
+}
+.formula .math{
+  font-family:var(--font-mono);font-size:clamp(14px,2vw,17px);color:var(--chrome-hi);
+  margin:22px 0;letter-spacing:.02em;
+  text-shadow:0 0 16px rgba(220,230,250,.18);
+}
+.formula .row{
+  display:flex;align-items:center;flex-wrap:wrap;gap:2px 10px;
+  margin:16px 0;min-height:40px;
+}
+.frac{
+  display:inline-flex;flex-direction:column;align-items:center;
+  vertical-align:middle;line-height:1.35;
+}
+.frac .num{padding:0 8px 2px;border-bottom:1.5px solid currentColor}
+.frac .den{padding:2px 8px 0}
+.formula p{font-size:13px;line-height:1.95;color:var(--muted2)}
+.formula sup,.formula sub{font-size:.68em}
+
+/* ── FINAL CTA ── */
+.final{
+  text-align:center;padding:130px 24px 150px;
+}
+.final h2{margin-bottom:14px}
+.final .sub{color:var(--muted2);font-size:15px;letter-spacing:.06em}
+
+footer{
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:30px 34px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--muted);
+}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease, transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<main>
+
+<!-- ═══════════ HERO ═══════════ -->
+<header class="hero">
+  <div class="hero-eyebrow">Optical Path Designer · IAMS Yb Lab</div>
+
+  <span class="wordmark-sheen">
+    <h1 class="wordmark"><em>Miss</em>align</h1>
+  </span>
+
+  <a class="cta" href="simulator.html">Enter the Simulator <span class="arrow">→</span></a>
+  <div class="cta-note">No install · Runs entirely in your browser</div>
+
+  <!-- signature: animated optical bench → output → computer → real table -->
+  <div class="bench" aria-hidden="true">
+    <svg viewBox="0 0 920 500" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="beamGlow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="960" height="540">
+          <feGaussianBlur stdDeviation="2.2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F2F3F6"/>
+          <stop offset=".45" stop-color="#9EA1AA"/>
+          <stop offset=".55" stop-color="#6A6D76"/>
+          <stop offset="1" stop-color="#D8DAE0"/>
+        </linearGradient>
+      </defs>
+
+      <!-- ══ OPTICAL PATH ══ -->
+      <path class="beam-path" d="M96 162 H 200 V 90 H 880" opacity=".9"/>
+      <path class="beam-path" d="M418 90 V 172" opacity=".8"/>
+      <path class="beam-pulse" d="M96 162 H 200 V 90 H 880"/>
+      <path class="beam-pulse pulse-refl" d="M418 90 V 172"/>
+
+      <rect class="comp comp-fill" x="30" y="148" width="66" height="28" rx="2"/>
+      <text x="30" y="196">Laser</text>
+
+      <line class="comp" x1="186" y1="176" x2="214" y2="148" stroke-width="3"/>
+      <text x="228" y="170">Mirror</text>
+
+      <line class="comp" x1="186" y1="104" x2="214" y2="76" stroke-width="3"/>
+      <text x="164" y="62">Mirror</text>
+
+      <rect class="comp" x="400" y="72" width="36" height="36"/>
+      <line class="comp" x1="400" y1="72" x2="436" y2="108"/>
+      <text x="398" y="134">PBS</text>
+
+      <rect class="comp comp-fill" x="404" y="172" width="28" height="14" rx="1"/>
+      <line class="comp" x1="404" y1="186" x2="432" y2="186" stroke-width="3"/>
+      <text x="396" y="206">Dump</text>
+
+      <path class="comp" d="M560 68 C 568 82, 568 98, 560 112 C 552 98, 552 82, 560 68 Z"/>
+      <text x="548" y="134">Lens</text>
+
+      <rect class="comp comp-fill" x="672" y="76" width="56" height="28" rx="2"/>
+      <text x="676" y="126">AOM</text>
+
+      <text x="846" y="68">Output</text>
+
+      <!-- ══ OUTPUT → COMPUTER ══ -->
+      <path class="map-link" d="M880 90 H 902 V 258 H 135 V 314" fill="none"/>
+      <path class="comp" d="M127 304 L 135 316 L 143 304" fill="none"/>
+
+      <!-- ══ COMPUTER (laptop) ══ -->
+      <rect class="comp" x="62" y="326" width="146" height="92" rx="4"/>
+      <path class="comp" d="M48 418 H 222 L 238 438 H 32 Z"/>
+      <!-- mini beam layout on screen -->
+      <rect class="comp" x="76" y="390" width="20" height="9" rx="1"/>
+      <line class="comp" x1="106" y1="400" x2="116" y2="390" stroke-width="2"/>
+      <line class="comp" x1="106" y1="356" x2="116" y2="346" stroke-width="2"/>
+      <rect class="comp" x="146" y="344" width="13" height="13"/>
+      <path class="bm-map" d="M96 395 H 111 V 351 H 196"/>
+      <text x="62" y="468">Design on screen</text>
+
+      <!-- ══ COMPUTER → REAL TABLE ══ -->
+      <line class="map-link" x1="268" y1="382" x2="472" y2="382"/>
+      <path class="comp" d="M460 374 L 472 382 L 460 390" fill="none"/>
+      <text x="356" y="366" style="fill:var(--muted2)">1 : 1</text>
+
+      <!-- ══ REAL OPTICAL TABLE (side view) ══ -->
+      <rect class="comp comp-fill" x="500" y="394" width="212" height="10" rx="1"/>
+      <line class="comp" x1="516" y1="404" x2="516" y2="442"/>
+      <line class="comp" x1="696" y1="404" x2="696" y2="442"/>
+      <rect class="comp" x="512" y="376" width="30" height="13" rx="1"/>
+      <line class="comp" x1="578" y1="390" x2="590" y2="378" stroke-width="2"/>
+      <rect class="comp" x="622" y="374" width="16" height="16"/>
+      <path class="comp" d="M676 372 C 680 378, 680 386, 676 392 C 672 386, 672 378, 676 372 Z"/>
+      <path class="bm-map" d="M542 383 H 700"/>
+      <text x="500" y="468">Build on the real table</text>
+    </svg>
+  </div>
+</header>
+
+<!-- ═══════════ FEATURES ═══════════ -->
+<section id="features">
+  <div class="sec-head reveal">
+    <div class="sec-eyebrow">Features</div>
+    <h2>What the Simulator Does</h2>
+    <p class="sec-desc">Everything you would do at the real table — laid out, traced, and measured on screen first.</p>
+  </div>
+
+  <div class="features">
+    <div class="feature reveal">
+      <div class="f-num">01</div>
+      <h3>Drag-and-Drop Path Design</h3>
+      <p>Place lasers, mirrors, beamsplitters, and modulators on a virtual optical bench with grid snapping and angle alignment — as intuitive as laying out a real breadboard.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">02</div>
+      <h3>Real-Time Beam Tracing</h3>
+      <p>Beams propagate live along the path: every component updates the polarization state via <code>Jones matrices</code> and recalculates power splitting — turn a waveplate and watch the PBS ratio change instantly.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">03</div>
+      <h3>Gaussian Beam Caustic Analysis</h3>
+      <p>The beam radius is tracked along the optical axis using the <code>q parameter</code> and <code>ABCD matrices</code>, marking waist positions and Rayleigh ranges — with a draggable probe to read the spot size anywhere.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">04</div>
+      <h3>3D View &amp; Project Saving</h3>
+      <p>Switch to a 3D view of the whole table with one click. Layouts can be saved in the browser, exported and re-imported, with light and dark themes for reports and discussions.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ COMPONENTS ═══════════ -->
+<section id="components">
+  <div class="sec-head reveal">
+    <div class="sec-eyebrow">Component Physics</div>
+    <h2>Components &amp; How They Work</h2>
+    <p class="sec-desc">Every element in the simulator maps to real hardware on the table — its behavior is driven by the underlying physics, not by a sprite.</p>
+  </div>
+
+  <div class="comps">
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <rect class="ln-fill" x="8" y="24" width="46" height="18" rx="2"/>
+        <path class="bm" d="M54 33 H 112"/>
+      </svg></div>
+      <div class="tag">Laser</div>
+      <h3>Laser Source</h3>
+      <p>Where every path begins. Stimulated emission produces coherent light, emitted as a near-ideal TEM₀₀ Gaussian beam.</p>
+      <div class="cmath"><span>w(z) = w₀</span><span>√(1 + (<span class="frac"><span class="num">z</span><span class="den">z<sub>R</sub></span></span>)²)</span><span>,</span><span>z<sub>R</sub> =</span><span class="frac"><span class="num">πw₀²</span><span class="den">λ</span></span></div>
+      <div class="phys">Stimulated emission · Gaussian mode w(z) · λ sets all diffraction downstream</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <line class="ln" x1="46" y1="50" x2="76" y2="18" stroke-width="4"/>
+        <path class="bm" d="M8 34 H 61 L 61 6"/>
+      </svg></div>
+      <div class="tag">Mirror · HR / OC / Dichroic</div>
+      <h3>Mirrors</h3>
+      <p>Dielectric multilayer coatings reflect by interference: HR mirrors reach R&gt;99.9%, output couplers transmit a controlled fraction, and dichroics reflect or transmit by wavelength.</p>
+      <div class="cmath"><span>θ<sub>inc</sub> = θ<sub>refl</sub></span><span>,</span><span>R(λ) + T(λ) = 1</span></div>
+      <div class="phys">Thin-film interference · angle in = angle out · R(λ) set by coating design</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <rect class="ln" x="44" y="16" width="32" height="32"/>
+        <line class="ln" x1="44" y1="48" x2="76" y2="16"/>
+        <path class="bm" d="M8 32 H 112"/>
+        <path class="bm-dim" d="M60 32 V 60"/>
+      </svg></div>
+      <div class="tag">PBS</div>
+      <h3>Polarizing Beamsplitter</h3>
+      <p>A multilayer coating on the diagonal transmits p-polarized light and reflects s-polarized light, splitting one beam into two by polarization. Paired with a half-wave plate, it becomes a continuously tunable power divider.</p>
+      <div class="cmath"><span>P<sub>t</sub> = P₀ cos²φ</span><span>,</span><span>P<sub>r</sub> = P₀ sin²φ</span></div>
+      <div class="phys">Polarization-selective reflection · T_p ≈ 1, R_s ≈ 1 · split ∝ cos² / sin²</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <line class="ln" x1="46" y1="50" x2="76" y2="14" stroke-width="3"/>
+        <path class="bm" d="M8 32 H 112"/>
+        <path class="bm-dim" d="M61 32 V 60"/>
+      </svg></div>
+      <div class="tag">Beamsplitter · Plate / Cube</div>
+      <h3>Beamsplitters</h3>
+      <p>A partially reflective coating divides the beam at a fixed ratio (50:50, 90:10, …), independent of polarization — the workhorse of pick-offs, monitoring, and interferometers.</p>
+      <div class="cmath"><span>P<sub>r</sub> = R·P₀</span><span>,</span><span>P<sub>t</sub> = (1 − R)·P₀</span></div>
+      <div class="phys">Partial reflection · R + T = 1 (lossless) · ratio fixed by coating</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <ellipse class="ln-fill" cx="60" cy="32" rx="7" ry="24"/>
+        <path class="bm" d="M8 32 H 112"/>
+        <path class="bm-dim" d="M44 20 L 60 8 M44 44 L 60 56"/>
+      </svg></div>
+      <div class="tag">λ/2 Waveplate</div>
+      <h3>Half-Wave Plate</h3>
+      <p>A birefringent crystal delays one polarization component by π relative to the other: linear polarization is mirrored about the fast axis, so rotating the plate by θ rotates the polarization by 2θ.</p>
+      <div class="cmath"><span>Γ =</span><span class="frac"><span class="num">2π(n<sub>e</sub> − n<sub>o</sub>)d</span><span class="den">λ</span></span><span>= π</span><span>,</span><span>α′ = 2θ − α</span></div>
+      <div class="phys">Birefringent retardance Γ = π · rotation = 2θ · + PBS = tunable splitter</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <ellipse class="ln-fill" cx="56" cy="32" rx="7" ry="24"/>
+        <path class="bm" d="M8 32 H 108"/>
+        <circle class="bm-dim" cx="92" cy="32" r="11"/>
+      </svg></div>
+      <div class="tag">λ/4 Waveplate</div>
+      <h3>Quarter-Wave Plate</h3>
+      <p>A π/2 retardance: linear polarization at 45° becomes circular, and vice versa. In double pass (through, reflect, through again) it acts as a half-wave plate — the classic optical-isolation trick.</p>
+      <div class="cmath"><span>Γ =</span><span class="frac"><span class="num">π</span><span class="den">2</span></span><span>,</span><span>E<sub>circ</sub> =</span><span class="frac"><span class="num">x̂ ± iŷ</span><span class="den">√2</span></span></div>
+      <div class="phys">Γ = π/2 · linear ↔ circular · double pass = λ/2</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <path class="ln-fill" d="M60 8 C 68 22, 68 42, 60 56 C 52 42, 52 22, 60 8 Z"/>
+        <path class="bm" d="M8 20 L 60 24 L 100 32 M8 44 L 60 40 L 100 32 M100 32 H 112"/>
+      </svg></div>
+      <div class="tag">Lens</div>
+      <h3>Lens</h3>
+      <p>Refraction reshapes the wavefront to focus or collimate the beam. For a Gaussian beam, the new waist size and position follow from transforming the q parameter with the ABCD matrix — not from the geometric image point.</p>
+      <div class="cmath"><span class="frac"><span class="num">1</span><span class="den">f</span></span><span>=</span><span class="frac"><span class="num">1</span><span class="den">s<sub>o</sub></span></span><span>+</span><span class="frac"><span class="num">1</span><span class="den">s<sub>i</sub></span></span><span>,</span><span>q′ =</span><span class="frac"><span class="num">q</span><span class="den">1 − q/f</span></span></div>
+      <div class="phys">Thin lens ABCD = [1 0; −1/f 1] · new w₀′ and position from q′</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <rect class="ln-fill" x="40" y="20" width="40" height="24" rx="2"/>
+        <path class="ln" d="M46 20 v-8 h28" stroke-dasharray="3 3"/>
+        <path class="bm" d="M8 32 H 40 M80 32 L 112 24"/>
+        <path class="bm-dim" d="M80 32 H 112"/>
+      </svg></div>
+      <div class="tag">AOM</div>
+      <h3>Acousto-Optic Modulator</h3>
+      <p>An RF-driven sound wave creates a traveling refractive-index grating inside a crystal. The beam Bragg-diffracts off it: the first order is deflected and frequency-shifted by ±f_RF — the workhorse for fast switching, frequency scans, and power stabilization.</p>
+      <div class="cmath"><span>sinθ<sub>B</sub> =</span><span class="frac"><span class="num">λ</span><span class="den">2Λ</span></span><span>,</span><span>f′ = f ± m·f<sub>RF</sub></span></div>
+      <div class="phys">Bragg diffraction sinθ_B = λ/2Λ · 1st order shifted f ± f_RF · switching ~ns–µs</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <rect class="ln-fill" x="40" y="20" width="40" height="24" rx="2"/>
+        <path class="ln" d="M50 20 v-8 M70 20 v-8" />
+        <path class="bm" d="M8 32 H 112"/>
+        <path class="bm-dim" d="M88 8 q6 8 0 16 q-6 8 0 16"/>
+      </svg></div>
+      <div class="tag">EOM</div>
+      <h3>Electro-Optic Modulator</h3>
+      <p>Based on the Pockels effect: an applied electric field changes the crystal's refractive index linearly, modulating the optical phase at high speed and adding ±f_mod sidebands to the spectrum — the heart of PDH laser locking.</p>
+      <div class="cmath"><span>Δφ = π</span><span class="frac"><span class="num">V</span><span class="den">V<sub>π</sub></span></span><span>,</span><span>Δn = −</span><span class="frac"><span class="num">n³rE</span><span class="den">2</span></span></div>
+      <div class="phys">Pockels effect Δn ∝ E · phase φ(t)=β sin(2πf t) · generates sidebands</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <rect class="ln" x="52" y="8" width="14" height="48"/>
+        <path class="bm" d="M8 32 H 52"/>
+        <path class="bm-dim" d="M66 32 H 112"/>
+      </svg></div>
+      <div class="tag">Shutter</div>
+      <h3>Mechanical Shutter</h3>
+      <p>A mechanical blade blocks the path completely — extremely high extinction, but slow (millisecond scale). It works in tandem with the AOM: the AOM is fast, the shutter closes clean.</p>
+      <div class="cmath"><span>ER =</span><span class="frac"><span class="num">P<sub>open</sub></span><span class="den">P<sub>closed</sub></span></span><span>,</span><span>T(t) ∈ {0, 1}</span></div>
+      <div class="phys">Mechanical blocking · switching ~ms · extinction ≫ AOM</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <path class="bm" d="M8 32 H 52"/>
+        <path class="ln" d="M52 24 L 68 30 L 68 34 L 52 40 Z"/>
+        <path class="ln" d="M68 32 C 84 32, 90 20, 112 22" stroke-dasharray="4 3"/>
+      </svg></div>
+      <div class="tag">Fiber Coupling</div>
+      <h3>Fiber Coupling</h3>
+      <p>Sending a free-space beam into a single-mode fiber requires matching the incoming Gaussian waist to the fiber's mode field — and the efficiency is brutally sensitive to alignment. The most <em>misalign</em>-prone spot on any table.</p>
+      <div class="cmath"><span>η =</span><span class="frac"><span class="num">|∫ E<sub>in</sub> E<sub>f</sub>* dA|²</span><span class="den">∫|E<sub>in</sub>|²dA · ∫|E<sub>f</sub>|²dA</span></span></div>
+      <div class="phys">Mode matching · η = |⟨E_in|E_fiber⟩|² · sensitive to offset &amp; tilt</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <path class="bm" d="M8 32 H 74"/>
+        <path class="ln-fill" d="M74 20 h20 v24 h-20 z"/>
+        <path class="ln" d="M78 24 l12 16 M90 24 l-12 16"/>
+      </svg></div>
+      <div class="tag">Beam Dump · Power Meter</div>
+      <h3>Beam Dump &amp; Power Meter</h3>
+      <p>Where paths end: a beam dump safely absorbs unwanted light, while a power meter reads the optical power via photodetection — the readout you use in the simulator to verify every splitting ratio.</p>
+      <div class="cmath"><span>I = ℛ·P</span><span>,</span><span>ℛ =</span><span class="frac"><span class="num">ηeλ</span><span class="den">hc</span></span></div>
+      <div class="phys">Absorptive dissipation · photocurrent ∝ power · readout on every branch</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════ ENGINE ═══════════ -->
+<section id="engine">
+  <div class="sec-head reveal">
+    <div class="sec-eyebrow">Physics Engine</div>
+    <h2>Under the Hood</h2>
+    <p class="sec-desc">Behind every beam on screen, two standard optical formalisms are doing the math.</p>
+  </div>
+
+  <div class="engine">
+    <div class="formula reveal">
+      <div class="tag">Gaussian Beam · ABCD</div>
+      <div class="math">
+        <div class="row">
+          <span class="frac"><span class="num">1</span><span class="den">q</span></span>
+          <span>=</span>
+          <span class="frac"><span class="num">1</span><span class="den">R(z)</span></span>
+          <span>−</span>
+          <span>i</span>
+          <span class="frac"><span class="num">λ</span><span class="den">πw²(z)</span></span>
+        </div>
+        <div class="row">
+          <span>q′</span>
+          <span>=</span>
+          <span class="frac"><span class="num">Aq + B</span><span class="den">Cq + D</span></span>
+        </div>
+      </div>
+      <p>A Gaussian beam's radius and wavefront curvature are packed into a single complex q parameter. Every stretch of free space, lens, or curved mirror applies its ABCD matrix to q. The simulator chains these matrices along the full path and draws the beam envelope (caustic) live — including the waist w₀ and the Rayleigh range z<sub>R</sub> = <span class="frac"><span class="num">πw₀²</span><span class="den">λ</span></span>.</p>
+    </div>
+    <div class="formula reveal">
+      <div class="tag">Polarization · Jones Calculus</div>
+      <div class="math">
+        <div class="row">
+          <span>E<sub>out</sub></span><span>=</span>
+          <span>M<sub>n</sub> ··· M₂ M₁ · E<sub>in</sub></span>
+        </div>
+        <div class="row">
+          <span>M<sub>λ/2</sub>(θ)</span><span>=</span>
+          <span>R(−θ) diag(1, e<sup>iπ</sup>) R(θ)</span>
+        </div>
+      </div>
+      <p>The polarization state is a two-component complex vector (Jones vector); each waveplate, PBS, and mirror is a 2×2 Jones matrix. Every component the beam passes through multiplies the state once — so as you rotate a half-wave plate, the two PBS outputs trade power as cos²2θ / sin²2θ, exactly as on the real table.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FINAL CTA ═══════════ -->
+<section class="final reveal">
+  <h2>Ready to align?</h2>
+  <p class="sub">Open the virtual bench and place your first mirror.</p>
+  <a class="cta" href="simulator.html">Enter the Simulator <span class="arrow">→</span></a>
+</section>
+
+</main>
+
+<footer>
+  <div>MISSALIGN · Optical Path Designer</div>
+  <div>IAMS Yb Lab · 2026</div>
+</footer>
+
+<script>
+// scroll reveal
+const io = new IntersectionObserver((es)=>{
+  es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

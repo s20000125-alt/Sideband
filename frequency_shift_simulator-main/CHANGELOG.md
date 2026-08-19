@@ -1,0 +1,204 @@
+# Simulator Changelog — frequency_shift_simulator
+
+All modifications live in `frequency_shift_simulator-main/simulator.html`.
+`simulator_original.html` is the untouched upstream file and is never edited.
+Verification after every edit round: Python bracket/backtick balance check against the original
+(baseline offsets `()` = −2, `[]` = +1, `{}` = 0, backticks even) — passed at every step.
+
+---
+
+## Session 2026-08-07 / 08
+
+### Fiber & coupling
+- **Fiber channel pairing UI** — Channel ID dropdown (A–H) on FiberIn/FiberOut with live pair status;
+  all pairing comparisons normalized to `(c.channel || 'A')`.
+- **NA ↔ mode-field-radius controls** on both fiber ends (FiberOut edits the paired FiberIn's shared mode).
+- **Fiber presets catalog** by wavelength band (PM460-HP, SM450, PM630-HP, PM780-HP, PM980-XP, SMF-28, …).
+- **Collimator & coupling-lens fine-tune** — axial/lateral nudges, lateral-offset readout, re-center,
+  typed "distance from fiber face".
+- **Auto-align fiber coupling** — one-click solver: searches lens f + position by real re-trace
+  (exact same physics as manual adjustment), places lens(es), fine-tunes, reports η.
+
+### Geometry & UI
+- **Two-component separation ruler** with typed center-to-center distance.
+- **Persistent groups** — click selects group, Alt+click single member, ⛓gN badges, 25 mm hole snapping
+  including best-fit rigid re-land after rotation.
+- **Linked probes** — w(z) plot probe ↔ board marker, both directions.
+- **z coordinates** — per-component z in the caustic optics bar; editable "z on beam" row in the panel.
+- **Hover-only labels** — component names/badges shown on hover/selection only (functional state stays visible).
+
+### Fixes
+- **Aperture fixes** — FiberIn/FiberOut interact within ±10 mm (was ±32); AOM within ±10 mm of center
+  (was the full 72.5 mm housing).
+- **Small-waist fixes** — removed hidden 5 µm laser-waist clamps (floor now λ/2); adaptive caustic sampling
+  around µm-scale waists.
+- **"(µm)" rendered as "(MM)"** — CSS uppercase turned µ into Greek capital Mu; fixed with `.unit` spans.
+- **False "z beyond traced path"** — `_beamPosAtPathLen` gap tolerance raised 2 → 10 mm (the tracer's
+  PUSH = 8 mm leaves 8 mm holes in path-length coverage after every optic).
+- **Caustic range selectors** keep user choices across re-renders; endpoints accepted in either order.
+
+---
+
+## Session 2026-08-18 / 19
+
+### Integrated fiber collimator
+- FiberIn/FiberOut carry an optional built-in thin lens: `collimator_on` (default OFF = old external-lens
+  way), `collimator_f`, `collimator_dist` [mm from fiber face], defaults 7.5 mm (A7.5-style package).
+- **FiberOut**: emits the post-lens q referenced to the port face (exact for z ≥ d; 0…d draws the virtual
+  collimated beam, like light leaving a collimator package).
+- **FiberIn**: coupling η computed through the port's lens (−d → lens f → +d folded into the traced q at
+  the face). Auto-align remains exact (re-trace scoring includes the integrated lens).
+- Panel: toggle, f/d inputs, "Set d = f" (collimate ↔ waist at face), output-beam readout (⌀ at lens,
+  waist ⌀/position, divergence), stale-external-lens warning; old Plan A/B/C UI hidden while ON.
+- Later addition: **fine-adjust nudge rows** for d and f (±1 / ±0.1 / ±0.01 mm).
+- Canvas: small lens tick at ±d on the port axis.
+
+### Breadboards
+- **Lock/free per board** — locked: dragging the board carries every component on it rigidly; free: the
+  board slides underneath (old way). Gold "🔒 locked" tag on canvas; board properties panel added
+  (size, hole count, rider count, lock toggle, delete).
+- **Board presets dropdown** ("＋ Add Board…"): Standard 600×425, 450×600, 300×450, Nanofiber MOT (500×600),
+  Nanofiber MOT — back side, custom size.
+- **Board rotation** — 90° steps about the center (w/h swap, origin re-snapped to the 25 mm grid);
+  locked boards rotate their optics too (positions + optical angles); MOT geometry rotates with the plate.
+
+### Nanofiber-MOT board (from `breadboard/NanofiberMOTAssembly.STL`)
+- Geometry extracted offline from the 27.5 MB / 550k-triangle STL (not embedded — 2D only by decision).
+- **Keep-out**: only the circular chamber reaches the plate (max radius 90.3 mm around the center) —
+  the nanofiber support overhangs from above, so the plate under it stays usable. Forbid radius 95 mm;
+  drags divert to the nearest free hole.
+- **⌀60 mm through-hole** found by rasterizing the plate-top triangles (bottom window for the vertical beam).
+- **2D chamber drawing** traced from the STL at window level (75 mm above plate): octagon body
+  (circumradius 68 mm, corners at 22.5° + k·45° — orientation corrected per lab knowledge), 8 recessed
+  viewports on the flats (k·45°), ⌀10 tube port to r = 129, ⌀34 fiber-side tube to r = 214, flange end caps.
+- **Back-side board**: same plate viewed from above at the level below — only the ⌀60 window, no keep-out;
+  hole at the same board-local spot so a V-Mirror on it aligns with the chamber axis.
+
+### New components
+- **Iris** — idealized AOM order filter ("real alignment too difficult"): per-order pass chips
+  (−2 −1 0 +1 +2); beams carry `aomOrder` stamped at the last AOM; blocked orders terminate at the iris;
+  non-AOM beams (and fiber-cleaned beams) always pass. Blade-tick canvas symbol with always-visible
+  pass tag; plain "Iris" label in exports.
+- **V-Mirror** — vertical fold for the 3D-MOT axis: ⊙ (up) / ⊗ (down) out-of-plane notation; optional
+  **retro** at settable vertical path (beam returns after 2×L with q and path length advanced — the
+  caustic stays physically correct through the vertical run) and **λ/4 double-pass** (pol +90°, so an
+  upstream PBS folds the return out — standard vertical MOT arm). Fine-tune: X/Y position nudges,
+  vertical-path nudges, and **return-beam tilt** (in-plane retro misalignment, ⌖0 = perfect retrace).
+
+### Physics fixes
+- **AOM false-color clarified** — canvas colors per diffraction order are display tags only; the
+  schematic export now colors beams by true wavelength (an 80 MHz shift does not change the color).
+- **PBS/CBS diagonal-face fix** — the intersect used the center plane (x = c.x / y = c.y), which collapsed
+  parallel offset beams (e.g. AOM orders) onto one axis after reflection: they merged at the PBS and only
+  re-separated by their small angle difference. Now the beam intersects the true diagonal line through the
+  cube center along `c.angle` (vertical offset → horizontal offset preserved). Note: off-center hits now
+  reflect off-center — physically right; old scenes may show small shifts.
+- **FiberOut blocks beams** — a beam hitting a FiberOut port (e.g. a back-reflection) terminates there
+  instead of passing through; the port's own emission excludes itself on the first hop so it never self-blocks.
+- **AOM "displayed orders"** — per-AOM chips select which single-pass orders are traced at all
+  (kept orders keep exact physics; DP retro on the selected order still works).
+
+### Schematic export (publication figures)
+- **PNG (3×) + SVG export** in the style of the lab's example figures: white background, black line-art
+  symbols (mirror stroke, lens ellipse + "f = X mm", PBS square + diagonal, HWP/QWP bars ⊥ the local beam,
+  labeled boxes, fiber connector + pigtail), wavelength-colored beams, true positions/angles.
+- PUSH-gap bridging (beams run continuously through optics), Liang-Barsky clipping.
+- **Label anti-overlap** — greedy placement (below → above → right → left → further out) against
+  rotation-aware symbol obstacles; labels drawn last.
+- **AOM fan exaggeration (export only)** — real ~1–2° deflections are unreadable; a diffracted order whose
+  beam flies off freely is drawn rotated to 10°/order (anchored beams keep true paths). (First
+  wedge-and-rejoin attempt rejected — looked like a glitch.)
+- **Board-set export** — checkbox list in the board panel selects which boards go into one figure:
+  union bounds, per-board beam clipping, dashed board outlines; MOT chamber drawn in line-art in exports.
+- Scope: per-board buttons in the board panel; whole-scene buttons in the toolbar.
+
+### Groups & mirrors
+- **Group mirror** — ⇋ Mirror H / ⇵ Mirror V flip the multi-selection about its centroid (positions and
+  optical angles reflect; D-mirror open side inverts; best-fit hole re-land like rotation).
+- **Mirror fine-tune** (all mirror types) — kinematic-mount-style nudges: angle ±1/±0.1/±0.01°
+  (reflected beam steers 2×), translation ⊥ normal (walks the beam parallel) and ∥ surface, ±1/±0.1/±0.02 mm.
+
+### Beam caustic window
+- **🎯 Target-z marker** — gold dashed line + ±w dots + "z ⌀" label at a typed z; anchored to the physical
+  plane (absolute path length), survives range changes, saved with the project.
+- **z-max override** — extend the axis past the traced beam (place the target beyond the last optic) or
+  zoom into the early range; "auto" placeholder shows the natural limit; saved with the project.
+
+### UX
+- **Component placement "lost it" fix** — drops far from any board no longer clamp into the nearest board
+  (they land at the cursor on the global grid); spawn pulse ring marks every new component; the view
+  auto-centers if a legitimate snap moved it off-screen; plain palette click places at the view center.
+
+---
+
+## Session 2026-08-19 (second session)
+
+Verification this session: in addition to the balance check, changes were tested end-to-end in headless
+Chrome (CDP) against the real page and the lab's saved scene (`IAMS_Yb_Lab_2026-08-19-2.json`).
+
+### MOT chamber
+- **Dispenser-side window is opaque** — the flat carrying the long ⌀34 dispenser tube (270° + board
+  rotation; board-top in the base orientation) has no viewport: beams now terminate at that wall, in both
+  directions. Canvas draws that window tick gray with a "dispenser (opaque)" note; schematic exports omit
+  its window tick. The other 7 viewports stay transparent.
+
+### Fiber channels
+- **Numbered channels 1–99** (letters removed). Old saves migrate on load: letters map to numbers ABOVE the
+  highest numeric channel already in the scene (pure-letter saves get A→1 … H→8), so legacy ports never
+  merge into an active numeric channel. New ports default to channel 1.
+- **Root cause of "channels > 10 don't pair"** — pairing uses strict `===`; one code path stored the channel
+  as a number, so `12 !== '12'` silently failed. Every setter now stores strings and loading coerces,
+  killing the whole mismatch class.
+- **Blank dropdowns fixed (all selects)** — Windows paints the native popup with the select's
+  near-transparent background over white → white-on-white options. Global CSS gives options solid colors
+  (hard-coded — option elements don't resolve CSS vars inside native popups).
+- **Panel warning when several FiberIns share one channel** (outputs take light from the first lit one).
+
+### Fiber chains light up correctly
+- **Multi-pass FiberOut emission** — a chain laser → FiberIn A … FiberOut A → optics → FiberIn B … FiberOut B
+  used to leave FiberOut B dark whenever it preceded FiberOut A in creation order (emission ran as ONE pass
+  in component order). Emission now repeats until no port gains light (each emits once, so loops terminate).
+  Found by reproducing the lab scene headless: 4 of 14 FiberOuts were dark with their inputs lit.
+
+### V-Mirror linking (vertical runs the 2D canvas can't draw)
+- **V-Link channel** pairs two V-Mirrors like fiber ports (own channel space, "— none" = standalone/retro).
+  A beam folding out of plane at one mirror re-enters at its mate along the mate's **exit angle**, with q and
+  path length advanced by the sender's vertical path — unlike fiber, polarization, EOM/AOM history and the
+  caustic all carry through (it's just two mirrors). Bidirectional; plugs into the same multi-pass emission,
+  so fiber ↔ V-link chains work in any order. Canvas: Vch badge + exit-direction arrow + dashed link line.
+- **Exit-angle controls** — quick-set → 0° / ↓ 90° / ← 180° / ↑ 270° buttons plus ±10/±1/±0.1/±0.01° nudges
+  (wraps mod 360), matching the mirror fine-tune style.
+
+### New component
+- **Camera** — imaging sensor: absorbs the beam and reads out spot ⌀ (1/e²), spot size in PIXELS, sensor
+  fill % with a clip warning, power, λ, path length. Sensor width/height/pixel size editable (defaults
+  11.26 × 7.03 mm, 3.45 µm). Rotates with its angle; "CAM" box in schematic exports.
+
+### Beam caustic: pick the light, not a range
+- **Source dropdown** — one entry per lit light origin: lasers, FiberOut emissions, V-Mirror links. Picking
+  one plots its full path from z = 0 at the source. **FiberOuts are first-class sources now** (the port is
+  the first node of the plot).
+- **Branch dropdown** — appears only when that light splits (PBS, AOM orders); entries labeled by where the
+  branch ends. No more guessing which arm the plot chose.
+- Start/end dropdowns + ▭ Range Select demoted to optional trim; switching source/branch resets to the full path.
+- **Two bugs fixed underneath**: fiber-emitted beams had no source identity, so (a) the port could never be
+  a range start, and (b) every truncated prefix of a fiber beam entered the beam cache as a separate beam —
+  selections landed on arbitrary partial paths.
+
+### Schematic export: labels avoid beams
+- Reverses the earlier "labels may cross beams" decision. Every drawn beam segment is now a placement
+  obstacle: labels try a near-to-far grid of ~50 positions (below/above rows × centred/edge/beside columns,
+  plus page-edge-flush columns for components near the border; export margin 25 → 48 px to create that
+  strip). If no clean single-line spot exists, the label wraps onto TWO lines and retries; last resort is
+  the fewest-crossings position. Verified on the lab scene: 0 label-beam overlaps on every board
+  (35 labels on the busiest board).
+- **Fiber pigtails are obstacles too** — the curly fiber tail extends well past the port's connector box,
+  and labels could land on it; each pigtail now registers its bounding box (bezier control-point hull) as a
+  label obstacle. Verified: 0 label-pigtail overlaps on all boards of the lab scene.
+- **Two wavelengths on one path → parallel strands** — segments were deduped by coordinates alone, so where
+  two colors co-propagate (e.g. 399 + 556 combined at a dichroic) the second color was silently not drawn.
+  Now segments dedupe by coordinates AND color, segments are grouped by their carrier line, and where colors
+  actually overlap each wavelength is drawn as its own thin line offset ±1.1 px perpendicular to the path
+  (railroad style — the standard two-color convention in beam-path figures). Single-color stretches stay on
+  the center line; the small jog where a color rejoins the center lands under an optic's white symbol.
+  Verified on the lab scene: both MOT-arm colors now visible along the shared paths, labels still clear.
