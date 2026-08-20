@@ -254,3 +254,92 @@ scan-parameter selector, ABCD/cavity handling).
 - **Zero regression on a real scene** — the 179-component lab layout (`IAMS_Yb_Lab_2026-08-19_1152`)
   traces to a bit-identical fingerprint before vs. after: 255 beams, every segment's geometry and
   q(re, im, w1, w2), all 20 fiber coupling efficiencies, all component hit readouts.
+
+---
+
+## Session 2026-08-21
+
+### Astigmatic laser source
+Astigmatism could previously only be *created* by a cylindrical lens — every beam left its laser round.
+- **"Source astigmatism"** selector on the laser panel. OFF (default) returns `qa = null`, so scenes
+  saved before this behave bit-for-bit as they did. ON gives the out-of-plane axis its own
+  `waist_v_um` / `waist_v_z_mm`, converted at emission into the same `qa` offset a cylinder produces,
+  so it rides downstream through the tracer, the w(z) plot, the per-axis coupling and the periscope
+  rule with nothing else touched.
+- Switching ON also starts *round*: the new fields fall back to the in-plane pair, so the beam only
+  turns elliptical once they are actually changed.
+- The laser's Gaussian-beam table gains w₀⊥ / z_R⊥ / q(0)⊥ and the axial separation of the two waists.
+
+### Both axes are now *quoted*, not just drawn
+The out-of-plane axis was computed and drawn but never reported anywhere — the waist box even built a
+`waistPtV` that nothing read.
+- **Caustic waist box** — w₀⊥, the z it sits at, and Δz between the two waists (that separation *is* the
+  astigmatism; the size alone says nothing). Teal dashed line + hollow rings mark the ⊥ waist. Waists now
+  carry their own adaptive unit, so a 148 µm ⊥ waist no longer renders as "0.1 mm" just because the
+  in-plane axis set the plot scale to mm.
+- **🎯 target marker** — ⌀∥ and ⌀⊥ at the target plane, with hollow rings on the dashed envelope.
+- **Probe tooltip** — w⊥ row and the w∥/w⊥ ellipticity. Filled dots always mean in-plane, hollow rings
+  always mean out-of-plane.
+- **Camera panel** — a sensor sees a 2D spot, so it splits into ⌀∥ (across sensor WIDTH) and ⌀⊥ (across
+  HEIGHT), spot size as W×H px, per-axis fill, and a clip warning naming *which* axis clipped: an
+  elliptical beam can overrun one axis while the other is comfortable.
+- **Board Beam Probe** — dia/radius as "A ∥ / B ⊥", ellipticity in the header.
+All of it is gated on the axes actually differing, so a round beam renders exactly as before.
+
+### V-Mirror out-of-plane runs stitched into the caustic
+A V-Mirror takes the beam off the board, and the w(z) plot used to stop dead at the fold: a channel-linked
+periscope pair was two unrelated beams (vertical run *and* the whole far side missing), and a retro
+V-Mirror left a blank stripe 2·vpath wide — often the longest free-space stretch on the path and exactly
+where the waist sits.
+- **Retro** — filled during sampling. Every optic leaves a hole of exactly `PUSH = 8` mm, so a larger gap
+  with a V-Mirror hit at its start is unambiguous; the run length comes from the traced geometry
+  (`gap − PUSH`), never re-read off the component, so it cannot disagree with the trace. Points carry the
+  height above the board, rising on the up-leg and falling on the down-leg.
+- **Linked pair** — new `_vlinkChain()` walks the hops (loop-guarded, follows chains). `drawBeamCaustic`
+  synthesises the vertical run by truly propagating the stored link-beam q, appends the far side's points, and
+  replaces the primary with a merged **proxy beam** — that proxy is what makes plot→board probing work
+  past the fold, since `_beamPosAtPathLen` needs the far side's segments. `_getCausticBeamNodes` walks the
+  same chain, so the trim dropdowns, the optics bar and component-click trimming all reach the far side.
+- **Invariant** — nodes are taken from the RAW beam, *before* the proxy replaces `primaryTrace`.
+  `updateCausticRangeSelectors` builds its dropdown from the same raw beam; taking them from the proxy
+  shifts every trim index.
+- **Axis naming inside a run** — there is no board plane out there, so the run adopts the FAR side's
+  naming (that is where the reader picks the beam back up on the canvas). A 90° periscope exchanges the
+  axes, so the two curves step at the entry fold — which is where the shaded band starts, and its label
+  says "⇄ axes exchanged" there.
+- **Drawing** — an indigo band marks every off-board stretch with its length and the mate it runs to. The
+  probe reports the height off the board and pins its board marker *at* the V-Mirror (recoloured, with a
+  `⊥h=` label) rather than dropping the link, since no in-plane position exists there.
+- R(z) and the local zR are computed for V-run points too, via a shared `_causticRzRAt()`, so the probe
+  has no dead patch inside a run.
+
+### Fix: caustic readouts read absolute z against a plot-relative axis
+`toX()`, the probe's `zProbe` and the target marker are plot-relative (0 = start of the selected range),
+but the waist marker, Rayleigh band, split-origin diamond, target readout and probe all interpolated
+`primaryTrace.pts`, which carries *absolute* path length. The two only agree when `branchZ0 == 0` — an
+untrimmed beam born at a laser. For a beam born at a FiberOut or a V-Mirror, or any trimmed range, every
+one of those readouts sat at the wrong z. (`_beamPosAtPathLen` right next to the probe already added
+`branchZ0` back, which is what made the mismatch visible.) All five sites now read the shifted,
+range-trimmed points.
+
+### Verification
+- All 6 inline `<script>` blocks parse (`jsc`, parse-only via `new Function`).
+- 17 numeric physics checks in `jsc`: per-axis w(z) matches `w₀√(1+((z−z₀)/z_R)²)`; `qa` invariant under
+  free propagation; a spherical lens re-maps the offset to exactly the directly computed vertical q;
+  crossed cylinders of equal f reproduce a spherical lens on both axes.
+- 61 in-browser end-to-end checks (headless Chrome over a raw-socket CDP client) with zero console errors:
+  hop geometry lands on the mirror face; far-side z is continuous at `fold + vpath`; the run's last q
+  equals the far beam's first q to 1e-12; the stitched w(z) is one analytic Gaussian across the whole
+  plot; a 90° turn is detected as swapped and its far in-plane axis *is* the near out-of-plane one; the
+  retro fill peaks at vpath and returns to zero with no gap larger than the 8 mm PUSH hole; V-run R(z)/zR
+  match the analytic Gaussian and the segment-loop convention; a cyl lens powered out of plane followed
+  by a periscope reproduces an independently built ABCD chain on the ⊥ axis to 1e-9 while leaving the
+  in-plane axis untouched.
+- **Zero regression on the real scenes** — `IAMS_Yb_Lab_2026-08-20` (265 beams / 1903 segments) and
+  `final_version` both draw all 50 selectable beams, open every panel type and probe cleanly. The trace
+  fingerprint — every segment endpoint, `q1`/`q2`/`qa` and `w1`/`w2`, plus all 21 coupling efficiencies —
+  is **bit-identical** to commit `4a162b6`, i.e. before this whole branch. The stitch is display-only.
+  The lab scene exercises it for real: 3 linked periscope hops across 4 V-Mirrors, 603 vertical-run points.
+- Visual check: screenshot of the stitched plot with an astigmatic source + out-of-plane cylinder +
+  90°-capable periscope — both envelopes continuous across the band, waist box, legend, and the probe
+  tooltip reading `w∥ 0.81 / w⊥ 0.22 / ⊥ V-run · 150 mm off board`.

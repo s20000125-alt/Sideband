@@ -1,4 +1,4 @@
-# Handover — frequency_shift_simulator (as of 2026-08-20, rev 3)
+# Handover — frequency_shift_simulator (as of 2026-08-21, rev 4)
 
 ## Files & rules
 - `simulator/simulator.html` — the WORKING file (all edits go here). Single self-contained
@@ -22,6 +22,17 @@
   test with `_qaIsRound(qa)` or `isAstigmatic(beamOrSegOrHit)`. Segments carry ONE `qa` (invariant along
   the segment); `_lastHit` carries `qa` + `beamRadiusVertMm`. **If you add an element with optical power,
   remap `qa` there or astigmatism goes subtly wrong downstream of it.**
+- **Caustic plot coordinates:** `toX()`, the probe's `zProbe` and the 🎯 target are all PLOT-RELATIVE
+  (0 = start of the selected range = `branchZ0`); `primaryTrace.pts` carries ABSOLUTE path length. Anything
+  measuring the plot must read `plotPts` (the shifted, range-trimmed copy) — mixing the two is silently
+  correct only for an untrimmed laser-born beam.
+- **Caustic V-Mirror stitch:** `_vlinkChain(beam)` walks channel-linked periscope hops; `drawBeamCaustic`
+  synthesises the vertical run and merges the far side into a **proxy beam** (`_vstitched`) so plot→board
+  probing works past the fold. `_getCausticBeamNodes` walks the same chain. **Nodes must be taken from the
+  RAW beam before the proxy replaces `primaryTrace`** — `updateCausticRangeSelectors` indexes the same raw
+  list, and taking them from the proxy shifts every trim index. Retro mirrors are filled during sampling
+  instead (gap > 8.5 mm with a vmirror hit at the gap start; run length = `gap − PUSH`, from the trace, not
+  the component). Points in a run carry `vert: true`, `vh` (height off the board) and `vmId`.
 - Tracer stores a beam object for every PREFIX of a path; use the longest continuation when mapping a component
   to its beam/z (`_compBeamZ`). `PUSH = 8` mm gap after every optic (q kept consistent) — this leaves 8 mm HOLES
   in path-length coverage; `_beamPosAtPathLen` tolerates gaps ≤10 mm (just above PUSH) and clamps in-hole z to
@@ -38,6 +49,16 @@ rigid re-land after rotation), linked probes (w(z) plot ↔ board marker, both d
 caustic optics bar and an editable "z on beam" panel row, caustic range selectors that keep user choices
 (dataset.prevVal) and accept endpoints in either order, hover-only component labels/badges (`_hoverComp`,
 `_labelVisible`), adaptive w(z) sampling around µm-scale waists, µm-aware readouts in the laser q panel.
+
+## Features added 2026-08-21
+Astigmatic laser source (`astig_source` = 'off'/'on' + `waist_v_um` / `waist_v_z_mm`, seeded into `qa` at
+emission — OFF returns null so old scenes are untouched); both transverse axes now *quoted* everywhere they
+were only drawn (caustic waist box w₀⊥ + Δz astigmatism, 🎯 target ⌀∥/⌀⊥, probe tooltip w⊥ + ellipticity,
+camera per-axis ⌀/fill/clip with W×H px, board probe "A ∥ / B ⊥"); V-Mirror out-of-plane runs stitched into
+the caustic (`_vlinkChain` for linked periscope pairs + a gap fill for retro mirrors, indigo band, height
+readout, proxy beam for far-side probing). Plus a fix: the caustic waist/zR-band/split/target/probe readouts
+were interpolating absolute-z points against a plot-relative axis — wrong for any beam born at a FiberOut or
+V-Mirror, or any trimmed range. See CHANGELOG.md.
 
 ## Features added 2026-08-20
 Cylindrical lens component (`cylens`) with a selectable powered axis (in-plane / out-of-plane) and full
@@ -72,6 +93,15 @@ See CHANGELOG.md for the full list and the verification evidence.
    fibers, and V-mirrors at once. Tooling from the cylindrical-lens session is in the session scratchpad
    pattern: minimal raw-socket CDP client (no pip deps) + `osascript -l JavaScript` for parse checks —
    there is still no Node on this machine.
+
+10. **`--dump-dom` headless Chrome never exits on this app** — the render loop keeps virtual time alive, so
+   `--virtual-time-budget` never expires and the run hangs (looks exactly like an infinite loop in your own
+   code; it isn't). Drive it over CDP instead and kill the browser yourself — kill by the scratch
+   `--user-data-dir` match, never `pkill chrome`, that's the user's browser. A stale `SingletonLock` in the
+   scratch profile also aborts the next launch; delete it before starting.
+11. **Inside a V-Mirror vertical run there is no board position.** Anything mapping plot-z → canvas must
+   handle that (the probe pins its marker at the mirror and shows `⊥h=`), or it silently drops the link
+   over what can be the longest stretch of the path.
 
 ## User context
 Yb atomic-physics lab; fluent in Gaussian optics — communicate in those terms. Typical parameters: 460 nm,
