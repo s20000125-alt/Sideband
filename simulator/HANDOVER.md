@@ -33,6 +33,12 @@
   list, and taking them from the proxy shifts every trim index. Retro mirrors are filled during sampling
   instead (gap > 8.5 mm with a vmirror hit at the gap start; run length = `gap − PUSH`, from the trace, not
   the component). Points in a run carry `vert: true`, `vh` (height off the board) and `vmId`.
+- **Each caustic curve follows ONE PHYSICAL AXIS, not one board orientation.** A 90° periscope exchanges
+  the transverse axes; spot sizes are continuous through the fold, only the names swap. Points carry
+  `xch` = exchanges upstream, and the stitch swaps `w`/`wv` on odd parity when merging a leg so the solid
+  curve never trades places with the dashed one. ∥/⊥ labels are then resolved PER Z from `xch` parity
+  (`_axSym`), never globally. **If you ever make the curves follow board orientation you will reintroduce
+  a ~65% vertical step at every 90° periscope** — that was a real reported bug.
 - Tracer stores a beam object for every PREFIX of a path; use the longest continuation when mapping a component
   to its beam/z (`_compBeamZ`). `PUSH = 8` mm gap after every optic (q kept consistent) — this leaves 8 mm HOLES
   in path-length coverage; `_beamPosAtPathLen` tolerates gaps ≤10 mm (just above PUSH) and clamps in-hole z to

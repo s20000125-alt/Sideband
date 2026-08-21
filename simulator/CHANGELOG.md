@@ -303,10 +303,14 @@ where the waist sits.
 - **Invariant** — nodes are taken from the RAW beam, *before* the proxy replaces `primaryTrace`.
   `updateCausticRangeSelectors` builds its dropdown from the same raw beam; taking them from the proxy
   shifts every trim index.
-- **Axis naming inside a run** — there is no board plane out there, so the run adopts the FAR side's
-  naming (that is where the reader picks the beam back up on the canvas). A 90° periscope exchanges the
-  axes, so the two curves step at the entry fold — which is where the shaded band starts, and its label
-  says "⇄ axes exchanged" there.
+- **Axis naming** — a 90° periscope *exchanges* the two transverse axes. The beam's two spot sizes are
+  continuous through the fold; only the NAMES swap. So each drawn curve follows **one physical axis** end
+  to end (solid = whichever axis is in-plane where the plot starts), which keeps w(z) continuous — the
+  only way the plot is readable. Naming the curves by board orientation instead would make them trade
+  values at the fold and put a meaningless vertical step in the middle of the caustic. The naming is
+  instead resolved **per z**: every point carries `xch` (exchanges upstream of it) and the ∥/⊥ symbols in
+  the waist box, probe and 🎯 readouts flip on its parity, with a `(—)`/`(- -)` tag naming the curve when
+  the plotted range straddles an exchange. The band and the legend say where it happens.
 - **Drawing** — an indigo band marks every off-board stretch with its length and the mate it runs to. The
   probe reports the height off the board and pins its board marker *at* the V-Mirror (recoloured, with a
   `⊥h=` label) rather than dropping the link, since no in-plane position exists there.
