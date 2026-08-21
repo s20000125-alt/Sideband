@@ -19,6 +19,7 @@ Cmd+Shift+R) after editing it; the live scene autosaves to `localStorage`.
 | [simulator/HANDOVER.md](simulator/HANDOVER.md) | Engine conventions, verification workflow, and the gotchas worth not rediscovering. **Read first when picking the project back up.** |
 | [simulator/CHANGELOG.md](simulator/CHANGELOG.md) | What changed in each work session, 2026-08-07 onward. |
 | [scenes/](scenes/) | Saved lab layouts (`.json`). [scenes/README.md](scenes/README.md) is the timeline — newest layout is the last row. |
+| [logs/](logs/) | One session log per working session — what changed, how, and what verified it — plus the screenshots they cite. [logs/README.md](logs/README.md) indexes them. |
 | [assets/breadboard/](assets/breadboard/) | `NanofiberMOTAssembly.STL`, the source geometry the MOT-chamber outline, keep-out radius, and ⌀60 through-hole were traced from. Provenance only — the app does not load it at runtime. |
 | [assets/reference/](assets/reference/) | Layout reference images (board-6 schematic export, AOD/SLM full layout). |
 | [tools/](tools/) | Unrelated to the simulator: [Fix-ClaudeSessionHistory.md](tools/Fix-ClaudeSessionHistory.md) + `.ps1` fix empty Claude Code session history on Windows machines whose projects live on a mapped network drive. |
@@ -27,11 +28,12 @@ Cmd+Shift+R) after editing it; the live scene autosaves to `localStorage`.
 
 - Edits go into `simulator/simulator.html` only. Two rejected attempts at the same
   change → restore that section from `simulator_original.html` verbatim and re-ask.
-- No Node on this machine. Verify an edit round with a Python brace/backtick balance
-  check against the original (baseline raw-count offsets: `()` = −2, `[]` = +1) and,
-  where behavior matters, headless Chrome over CDP against a real scene.
 - One commit per verified edit round, so `simulator_original.html` stops being the
   only way back.
+- **Engine conventions, how to verify an edit, and the gotchas are in
+  [simulator/HANDOVER.md](simulator/HANDOVER.md) — that file is the single source.**
+  This README deliberately does not restate them: it used to, and both copies of the
+  verification method went stale within one session.
 - **Nothing is left untracked**: [tools/git-autocommit.sh](tools/git-autocommit.sh)
   runs from a Claude Code `Stop` hook (`.claude/settings.json`) and commits any
   outstanding change — yours or Claude's — as `auto: N file(s) changed`. It never

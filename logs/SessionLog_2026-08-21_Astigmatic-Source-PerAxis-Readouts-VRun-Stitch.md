@@ -122,6 +122,10 @@ Two mechanisms, because the tracer models the two cases differently:
 ### 5. Axis-exchange discontinuity — `32797a2` (user-reported)
 **This was my design error, shipped in `df75d1d` and corrected after the user flagged it.**
 
+Evidence: [`2026-08-21_axis-exchange-jump.png`](2026-08-21_axis-exchange-jump.png) is the reported
+defect; [`2026-08-20_continuous-caustic-wanted.png`](2026-08-20_continuous-caustic-wanted.png) is the
+shape that was wanted instead.
+
 I had named the curves by *board orientation* (solid = in-plane on the board). Since a 90° periscope
 exchanges the axes, the solid curve had to **trade values with the dashed one at the fold** — a
 measured **64.5% vertical step** in the middle of the caustic. I had reasoned that consistency with
