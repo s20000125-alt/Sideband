@@ -1,13 +1,32 @@
-# Handover — frequency_shift_simulator (as of 2026-08-21, rev 4)
+# Handover — frequency_shift_simulator (as of 2026-08-22, rev 5)
 
 ## Files & rules
 - `simulator/simulator.html` — the WORKING file (all edits go here). Single self-contained
-  HTML app, ~13.5k lines, one main `<script>` block. `index.html` is a landing page only.
+  HTML app, **17.1k lines** at rev 5, six inline `<script>` blocks (one of them ~13 MB of base64
+  STL — never `grep` it without `cut`). `index.html` is a landing page only.
 - `simulator/simulator_original.html` — pristine original. **Never edit.** Used to restore
   sections verbatim when a change is rejected ("go back to the original X code").
-- No Node on this machine; verify edits with a Python script comparing brace/backtick balance + difflib hunks
-  between original and working file (baseline raw-count offsets: `()` = −2, `[]` = +1).
 - User tests in the browser; remind them to hard-reload (Ctrl+F5). Scenes autosave to localStorage.
+
+## Verifying an edit (no Node on this machine)
+Four layers, cheapest first. Run 1 after *every* edit batch; 3–4 before claiming anything works.
+1. **Parse** — extract the six inline `<script>` blocks and compile each with `new Function(src)`
+   under `jsc` (`/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc`);
+   that parses without executing, so it needs no DOM. Supersedes the old brace/backtick-balance
+   count, which only ever proved the file was *balanced*, not that it parsed.
+2. **Physics in `jsc`** — `sed` the q-helper range out of the file, `load()` it, assert against
+   Gaussians computed by hand. No DOM needed, sub-second.
+3. **In-browser over CDP** — headless Chrome plus a stdlib-only WebSocket client, `Runtime.evaluate`
+   with `returnByValue`. Build scenes programmatically (`components.length = 0; components.push(
+   mkComp(...)); lastTracedBeams = traceRays()`), assert, then kill the browser. See gotcha 4 —
+   do **not** use `--dump-dom`.
+4. **Regression by fingerprint** — hash every segment endpoint, `q1`/`q2`/`qa`, `w1`/`w2` and all
+   coupling η for a real scene, on the pre-change file and the working file, and compare. This is
+   what turns "no regression" into a measurement. `scenes/IAMS_Yb_Lab_2026-08-20.json` (265 beams /
+   1903 segments) exercises lenses, cylinders, AOMs, fibers and V-mirrors at once.
+
+Then **look at it**: screenshot the canvas or the w(z) plot over CDP. Two of the three real defects
+in the 08-21 session were found by looking, with the assertion suite fully green.
 
 ## Engine conventions
 - World units = mm; canvas y points down. All beam sizes are 1/e² intensity RADII ("⌀" = 2w everywhere).
@@ -93,12 +112,8 @@ See CHANGELOG.md for the full list and the verification evidence.
 8. **Test helper trap:** the tracer stores a beam object for every PREFIX of a path, and prefixes carry
    the SAME total power — so picking the "primary" beam by power alone silently returns a 1-segment stub
    and every downstream measurement reads "no data". Pick by longest path (`segments[last].pathEndMm`).
-9. **Regression proof that works here:** fingerprint a real scene (all segment geometry + q + coupling
-   η + `_lastHit` readouts) through headless Chrome on the pre-change copy and the working file, and
-   diff. `scenes/IAMS_Yb_Lab_2026-08-19_1152.json` (179 comps, 255 beams) exercises lenses, AOMs,
-   fibers, and V-mirrors at once. Tooling from the cylindrical-lens session is in the session scratchpad
-   pattern: minimal raw-socket CDP client (no pip deps) + `osascript -l JavaScript` for parse checks —
-   there is still no Node on this machine.
+9. **Regression proof that works here:** fingerprint a real scene — see "Verifying an edit" above,
+   layer 4. Do not settle for "it still renders".
 
 10. **`--dump-dom` headless Chrome never exits on this app** — the render loop keeps virtual time alive, so
    `--virtual-time-budget` never expires and the run hangs (looks exactly like an infinite loop in your own

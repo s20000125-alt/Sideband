@@ -2,8 +2,10 @@
 
 All modifications live in `simulator/simulator.html`.
 `simulator_original.html` is the untouched upstream file and is never edited.
-Verification after every edit round: Python bracket/backtick balance check against the original
-(baseline offsets `()` = −2, `[]` = +1, `{}` = 0, backticks even) — passed at every step.
+How each session was verified is stated in its own entry below; the current method is in
+[HANDOVER.md](HANDOVER.md) ("Verifying an edit"). Early sessions used a bracket/backtick balance
+count against the original — that only ever proved the file was *balanced*, and was superseded on
+2026-08-21 by a real parse check under `jsc`.
 
 ---
 
