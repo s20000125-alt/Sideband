@@ -41,6 +41,14 @@ in the 08-21 session were found by looking, with the assertion suite fully green
   test with `_qaIsRound(qa)` or `isAstigmatic(beamOrSegOrHit)`. Segments carry ONE `qa` (invariant along
   the segment); `_lastHit` carries `qa` + `beamRadiusVertMm`. **If you add an element with optical power,
   remap `qa` there or astigmatism goes subtly wrong downstream of it.**
+- **`drawBeamCaustic()` samples every beam in the scene, and that is cached.** The sampling loop is
+  hoisted into `_buildCausticBeamTraces(beams)` and memoized by `_getCausticBeamTraces(beams)`, keyed
+  on the **identity** of the traced-beam array. `traceRays()` returns a fresh array every time, so the
+  cache can never be staler than `lastTracedBeams` itself. Keep the builder a **pure function of
+  `beams`** — the moment it reads a view variable (layout, zoom, trim, probe) the cache starts serving
+  stale geometry. Callers must not mutate what it returns; the drawing path only ever spreads into new
+  objects. `_causticInvalidateTraces()` covers the one case identity cannot see: beams mutated in
+  place without re-tracing.
 - **Caustic plot coordinates:** `toX()`, the probe's `zProbe` and the 🎯 target are all PLOT-RELATIVE
   (0 = start of the selected range = `branchZ0`); `primaryTrace.pts` carries ABSOLUTE path length. Anything
   measuring the plot must read `plotPts` (the shifted, range-trimmed copy) — mixing the two is silently
@@ -120,7 +128,12 @@ See CHANGELOG.md for the full list and the verification evidence.
    code; it isn't). Drive it over CDP instead and kill the browser yourself — kill by the scratch
    `--user-data-dir` match, never `pkill chrome`, that's the user's browser. A stale `SingletonLock` in the
    scratch profile also aborts the next launch; delete it before starting.
-11. **Inside a V-Mirror vertical run there is no board position.** Anything mapping plot-z → canvas must
+11. **`render()` is rAF-throttled** (`render = function(){ requestAnimationFrame(_renderOrig) }` at
+   ~10906, wrapped again at ~16699 for the assist layer). It does **not** re-trace synchronously, so a
+   headless test that edits the scene, calls `render()`, then asserts immediately reads STALE state and
+   looks exactly like a caching bug. Use **`renderNow()`** (which exists for this) or
+   `lastTracedBeams = traceRays()` in tests. Cost me two false failures.
+12. **Inside a V-Mirror vertical run there is no board position.** Anything mapping plot-z → canvas must
    handle that (the probe pins its marker at the mirror and shows `⊥h=`), or it silently drops the link
    over what can be the longest stretch of the path.
 

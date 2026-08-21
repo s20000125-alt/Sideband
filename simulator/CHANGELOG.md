@@ -328,6 +328,19 @@ one of those readouts sat at the wrong z. (`_beamPosAtPathLen` right next to the
 `branchZ0` back, which is what made the mismatch visible.) All five sites now read the shifted,
 range-trimmed points.
 
+### Beam-caustic probe: usable pointer, 12× faster redraw
+- **The OS cursor is visible again while probing.** It was hidden on the assumption that the drawn
+  crosshair replaced it, but that crosshair only tracks z — vertical mouse motion moved nothing on
+  screen, so you lost track of your own pointer. Drawing a cursor instead is not an option: it repaints
+  with the plot and would trail the real pointer by a frame.
+- **The sampled traces are now memoized.** `drawBeamCaustic()` re-sampled *every* beam in the scene on
+  *every* call — including the one fired by each mousemove while probing — then drew exactly one of
+  them. Profiled on `IAMS_Yb_Lab_2026-08-20` (265 beams, 44 771 plotted points): **243 ms/frame, of
+  which 223 ms was sampling beams that are never drawn**; stroking the visible curve measured ~0 ms.
+  The sampling loop is hoisted into a pure `_buildCausticBeamTraces(beams)` and cached on the traced-beam
+  array's identity, so a re-trace invalidates it automatically. **243 ms → 14 ms (3 fps → 70 fps.)**
+  No point decimation was needed.
+
 ### Verification
 - All 6 inline `<script>` blocks parse (`jsc`, parse-only via `new Function`).
 - 17 numeric physics checks in `jsc`: per-axis w(z) matches `w₀√(1+((z−z₀)/z_R)²)`; `qa` invariant under
