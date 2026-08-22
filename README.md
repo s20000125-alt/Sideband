@@ -87,7 +87,8 @@ The full list, with the reasoning behind each, is in
 
 ## Provenance
 
-The original simulator was written by a labmate with LLM assistance, and already had
+The original simulator was written by a labmate, @s20000125-alt, with LLM assistance and is
+published at https://github.com/iams-yb-lab/frequency_shift_simulator. It already had
 the single-file bench, Jones-calculus polarisation, `q`-parameter Gaussian propagation,
 19 component types and the analysis tabs. The two-axis (astigmatic) engine, out-of-plane
 periscope routing, fiber collimators and per-axis coupling, the `w(z)` caustic
@@ -96,7 +97,8 @@ board were added by Yi-Cheng "Maximus" Liu (@yi-cheng-maximus-liu). The full bef
 account is in [ABOUT.md](ABOUT.md); per-session detail is in
 [simulator/CHANGELOG.md](simulator/CHANGELOG.md) and [logs/](logs/).
 
-Both copyright holders are named in [LICENSE](LICENSE) — the original author's name is
-a TODO there, to be confirmed before this repo is made public.
+[LICENSE](LICENSE) is MIT and names one copyright holder, covering the contributions
+described above; the upstream repo carries no licence of its own, and this repo does not
+relicense it on its behalf.
 
 **Maintainer:** Yi-Cheng "Maximus" Liu.

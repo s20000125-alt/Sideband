@@ -1,10 +1,11 @@
 MIT License
 
 Copyright (c) 2026 Yi-Cheng "Maximus" Liu (@yi-cheng-maximus-liu)
-Copyright (c) 2026 <ORIGINAL AUTHOR — TODO: confirm name/handle before publishing>
 
-The second copyright line covers the original MissAlign simulator, on which this
-work is based. See ABOUT.md, "Where it started", for what each author contributed.
+This work builds on the original simulator by @s20000125-alt, published at
+https://github.com/iams-yb-lab/frequency_shift_simulator, which carries no
+licence of its own. This grant covers the contributions of the copyright holder
+named above; see ABOUT.md, "Where it started", for what each author wrote.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
