@@ -341,6 +341,25 @@ range-trimmed points.
   array's identity, so a re-trace invalidates it automatically. **243 ms → 14 ms (3 fps → 70 fps.)**
   No point decimation was needed.
 
+### Caustic waist box: docked, compacted, and hideable
+- The w₀ box sat beside the waist, pinned just above the centreline — which is exactly where the
+  envelope runs for a small beam, so it covered the very curve it annotates. It now **docks to
+  whichever plot corner the beam leaves emptiest** (scored against the real envelope; bottom-right
+  is skipped when the ∥/⊥ legend is there), with a faint leader line back to the waist tick.
+  Corners rather than a free search, so it does not hop around while an optic is being nudged.
+- **Compacted from 6 lines to 3** (2 for a round beam): the waist position rides on the same line as
+  its size, and the ⊥ waist's z is implied by Δz instead of spending a line. Row colours now match
+  the curve each row describes.
+- New **☑ Waist** toggle beside Fill / R(z) hides the whole annotation — lines, dots and box.
+
+### Fix: R(z) and zR described the wrong axis past a periscope exchange
+The axis-exchange fix swapped `w`/`wv` at the fold but left `R` and `zR` behind, so **every point
+past a 90° periscope reported the other axis's Rayleigh range and wavefront curvature** — a 13.7 µm
+waist quoting `zR = 28.63 m` where the true value is 1.1 mm. Both are now carried per axis
+(`Rv`, `zRv`) through the sampler, the retro fill and the V-run fill, and swapped together with
+`w`/`wv` wherever a leg is re-keyed. Caught by the box compaction putting w₀ and zR on adjacent
+lines, where the inconsistency became obvious.
+
 ### Verification
 - All 6 inline `<script>` blocks parse (`jsc`, parse-only via `new Function`).
 - 17 numeric physics checks in `jsc`: per-axis w(z) matches `w₀√(1+((z−z₀)/z_R)²)`; `qa` invariant under
