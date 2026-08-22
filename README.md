@@ -1,20 +1,33 @@
-# IAMS Yb Lab — optics layout simulator
+# MissAlign
 
-Beam-path and breadboard layout tool for the Yb atomic-physics lab: Gaussian-beam
-propagation (q-formalism, 1/e² radii, mm world units) over a 25 mm breadboard grid,
-with fiber channels, AOM orders, the nanofiber-MOT chamber, and publication-quality
-schematic export.
+**A browser-based optical path designer for tabletop laser labs.** Lay out an optical
+bench on screen, trace the beam through it with the physics you would use on paper, and
+read off the numbers you would otherwise measure with a beam profiler — before you touch
+a single mount.
+
+Astigmatic (two-axis) Gaussian propagation over a 25 mm breadboard grid, with Jones-calculus
+polarisation, fiber channels and coupling efficiency, AOM orders, out-of-plane periscopes,
+the nanofiber-MOT chamber, and publication-quality schematic export.
 
 ## Run it
 
-Open [simulator/simulator.html](simulator/simulator.html) in a browser — it is a
-single self-contained file, no build step and no server. Hard-reload (Ctrl+F5 /
-Cmd+Shift+R) after editing it; the live scene autosaves to `localStorage`.
+Open [simulator/simulator.html](simulator/simulator.html) in a browser. That is the whole
+installation — one self-contained file, no build step, no server. The live scene autosaves
+to `localStorage`; hard-reload (Ctrl+F5 / Cmd+Shift+R) after editing the file.
+
+## Start here
+
+| | |
+|---|---|
+| 📖 **[MANUAL.md](MANUAL.md)** | **How to use it** — controls, components, and worked recipes (place a waist, couple a fiber, circularise a beam, route a periscope). |
+| 💡 **[ABOUT.md](ABOUT.md)** | What MissAlign is, what it was before, and what was added to it. |
 
 ## Layout
 
 | Path | What |
 |---|---|
+| [ABOUT.md](ABOUT.md) | Project introduction: capabilities, origin, and the contributions on top of it. |
+| [MANUAL.md](MANUAL.md) | **User manual** — the place to start if you just want to use it. |
 | [simulator/](simulator/) | The app. `simulator.html` is the **working file — all edits go here**; `simulator_original.html` is the pristine upstream copy, **never edited**, used to restore a section verbatim when a change is rejected. `index.html` is a landing page. |
 | [simulator/HANDOVER.md](simulator/HANDOVER.md) | Engine conventions, verification workflow, and the gotchas worth not rediscovering. **Read first when picking the project back up.** |
 | [simulator/CHANGELOG.md](simulator/CHANGELOG.md) | What changed in each work session, 2026-08-07 onward. |

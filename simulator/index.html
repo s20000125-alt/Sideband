@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MISSALIGN — Optical Alignment Simulator</title>
+<title>MissAlign — Optical Path Designer</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,600;1,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -74,7 +74,7 @@ main{position:relative;z-index:1}
 h1.wordmark{
   font-family:var(--font-display);font-weight:800;
   font-size:clamp(56px, 11.5vw, 148px);
-  line-height:.98;letter-spacing:.045em;text-transform:uppercase;
+  line-height:.98;letter-spacing:.045em;
   background:linear-gradient(180deg,
     #FFFFFF 0%, #E9EAEE 28%, #A8ABB5 46%, #63666F 52%, #C9CCD4 60%, #F5F6F8 78%, #DADCE2 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
@@ -328,7 +328,7 @@ footer{
   <div class="hero-eyebrow">Optical Path Designer · IAMS Yb Lab</div>
 
   <span class="wordmark-sheen">
-    <h1 class="wordmark"><em>Miss</em>align</h1>
+    <h1 class="wordmark"><em>Miss</em>Align</h1>
   </span>
 
   <a class="cta" href="simulator.html">Enter the Simulator <span class="arrow">→</span></a>
@@ -427,22 +427,42 @@ footer{
     <div class="feature reveal">
       <div class="f-num">01</div>
       <h3>Drag-and-Drop Path Design</h3>
-      <p>Place lasers, mirrors, beamsplitters, and modulators on a virtual optical bench with grid snapping and angle alignment — as intuitive as laying out a real breadboard.</p>
+      <p>Place lasers, mirrors, beamsplitters, modulators and fiber ports on a virtual optical bench, snapped to a 25&nbsp;mm hole grid. Add breadboards, lock them so their optics ride along, group components to move and mirror them as one — and lay out the nanofiber-MOT chamber with its real keep-out geometry.</p>
     </div>
     <div class="feature reveal">
       <div class="f-num">02</div>
       <h3>Real-Time Beam Tracing</h3>
-      <p>Beams propagate live along the path: every component updates the polarization state via <code>Jones matrices</code> and recalculates power splitting — turn a waveplate and watch the PBS ratio change instantly.</p>
+      <p>Beams propagate live along the path. Every component updates the polarization state via <em>Jones matrices</em> and recalculates power splitting — turn a waveplate and watch the PBS ratio change instantly. AOM orders, EOM sidebands and fiber channels are all traced together.</p>
     </div>
     <div class="feature reveal">
       <div class="f-num">03</div>
-      <h3>Gaussian Beam Caustic Analysis</h3>
-      <p>The beam radius is tracked along the optical axis using the <code>q parameter</code> and <code>ABCD matrices</code>, marking waist positions and Rayleigh ranges — with a draggable probe to read the spot size anywhere.</p>
+      <h3>Astigmatic Gaussian Optics</h3>
+      <p>Both transverse axes are tracked independently, so cylindrical lenses, sheet beams and elliptical sources are real physics rather than an approximation. The beam radius follows from the <em>q&nbsp;parameter</em> and <em>ABCD matrices</em> on each axis, with per-axis waists, Rayleigh ranges and ellipticity reported everywhere.</p>
     </div>
     <div class="feature reveal">
       <div class="f-num">04</div>
-      <h3>3D View &amp; Project Saving</h3>
-      <p>Switch to a 3D view of the whole table with one click. Layouts can be saved in the browser, exported and re-imported, with light and dark themes for reports and discussions.</p>
+      <h3>w(z) Caustic Analysis</h3>
+      <p>Pick which light to plot — laser, fiber output or periscope — trim the range to any two optics, and read the envelope of both axes along the path. A probe cursor links the plot to the bench in both directions, so any point on the curve maps to a physical plane on the table. Export the trace as CSV.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">05</div>
+      <h3>Fiber Coupling, Honestly</h3>
+      <p>Fiber ports carry an optional integrated collimator, and coupling efficiency is computed per axis — so an elliptical beam is told the truth: no single spherical lens fixes both axes. Presets, NA&nbsp;↔&nbsp;mode-field controls, channel pairing, fiber chains, and a one-click auto-align that scores by real re-tracing.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">06</div>
+      <h3>Out-of-Plane Routing</h3>
+      <p>Periscopes take the beam off the table and bring it back — including the 90&deg; turn that exchanges the two transverse axes. The vertical run and the whole far side of the path are stitched into one continuous w(z) curve, with the height above the bench read out.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">07</div>
+      <h3>Sub-Hole Fine Alignment</h3>
+      <p>Alignment is not a 25&nbsp;mm grid operation. Every relevant optic gets nudges along the beam, across it and in angle, down to 0.01&nbsp;mm — plus typed distances, a &ldquo;z on beam&rdquo; path-length readout, and centre-to-centre separation for pairs.</p>
+    </div>
+    <div class="feature reveal">
+      <div class="f-num">08</div>
+      <h3>Figures, 3D and Saving</h3>
+      <p>One click exports a publication-quality line-art schematic as SVG or PNG, with standard symbols and labels that dodge the beams. Switch to a 3D view of the whole table, export CAD, and save layouts to a portable JSON file — with light and dark themes for reports.</p>
     </div>
   </div>
 </section>
@@ -479,6 +499,20 @@ footer{
       <p>Dielectric multilayer coatings reflect by interference: HR mirrors reach R&gt;99.9%, output couplers transmit a controlled fraction, and dichroics reflect or transmit by wavelength.</p>
       <div class="cmath"><span>θ<sub>inc</sub> = θ<sub>refl</sub></span><span>,</span><span>R(λ) + T(λ) = 1</span></div>
       <div class="phys">Thin-film interference · angle in = angle out · R(λ) set by coating design</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <line class="ln" x1="36" y1="54" x2="56" y2="34" stroke-width="3"/>
+        <line class="ln" x1="36" y1="30" x2="56" y2="10" stroke-width="3"/>
+        <path class="bm" d="M8 46 H 46 V 20 H 112"/>
+        <path class="bm-dim" d="M46 46 V 20"/>
+      </svg></div>
+      <div class="tag">V-Mirror · Periscope</div>
+      <h3>Out-of-Plane Fold</h3>
+      <p>A 45&deg; fold that sends the beam out of the board plane. Two of them on a channel form a periscope: the beam runs vertically between them and re-enters the plane at the mate, carrying its polarization, frequency history and accumulated path length. One alone can retro-reflect — a MOT vertical arm.</p>
+      <div class="cmath"><span>L → L + L<sub>v</sub></span><span>,</span><span>Δφ<sub>azimuth</sub> = 90°</span><span>⇒</span><span>(w<sub>∥</sub>, w<sub>⊥</sub>) → (w<sub>⊥</sub>, w<sub>∥</sub>)</span></div>
+      <div class="phys">Two 45&deg; folds · adds the vertical run to z · a 90&deg; turn exchanges the transverse axes</div>
     </div>
 
     <div class="comp-card reveal">
@@ -548,6 +582,19 @@ footer{
 
     <div class="comp-card reveal">
       <div class="icon"><svg viewBox="0 0 120 64">
+        <path class="ln-fill" d="M54 8 L54 56 C 68 44, 68 20, 54 8 Z"/>
+        <path class="bm" d="M8 16 L 58 26 L 100 32 M8 48 L 58 38 L 100 32 M100 32 H 112"/>
+        <path class="bm-dim" d="M8 32 H 112"/>
+      </svg></div>
+      <div class="tag">Cylindrical Lens</div>
+      <h3>Cylindrical Lens</h3>
+      <p>Curved on one meridian only, so it focuses one transverse axis and leaves the other untouched — the element that makes a beam astigmatic on purpose. A crossed pair with different focal lengths turns an elliptical beam into a round one; a crossed pair with equal focal lengths is just a spherical lens.</p>
+      <div class="cmath"><span>q′<sub>∥</sub> =</span><span class="frac"><span class="num">q<sub>∥</sub></span><span class="den">1 − q<sub>∥</sub>/f</span></span><span>,</span><span>q′<sub>⊥</sub> = q<sub>⊥</sub></span></div>
+      <div class="phys">Power on one meridian · ABCD applied per axis · pairs circularise an ellipse</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
         <rect class="ln-fill" x="40" y="20" width="40" height="24" rx="2"/>
         <path class="ln" d="M46 20 v-8 h28" stroke-dasharray="3 3"/>
         <path class="bm" d="M8 32 H 40 M80 32 L 112 24"/>
@@ -589,6 +636,20 @@ footer{
 
     <div class="comp-card reveal">
       <div class="icon"><svg viewBox="0 0 120 64">
+        <line class="ln" x1="60" y1="4" x2="60" y2="24" stroke-width="3"/>
+        <line class="ln" x1="60" y1="40" x2="60" y2="60" stroke-width="3"/>
+        <path class="bm" d="M8 32 H 112"/>
+        <path class="bm-dim" d="M8 14 L 58 22 M8 50 L 58 42"/>
+      </svg></div>
+      <div class="tag">Iris</div>
+      <h3>Iris</h3>
+      <p>An aperture that passes the orders you choose and blocks the rest. Because an AOM separates its diffraction orders by angle, they are spatially resolved a short distance downstream — so a stopped-down aperture is how you actually pick one order and dump the others.</p>
+      <div class="cmath"><span>Δθ ≈</span><span class="frac"><span class="num">λ</span><span class="den">Λ</span></span><span>per order</span><span>,</span><span>T = 1 − e<sup>−2a²/w²</sup></span></div>
+      <div class="phys">Angular order separation · clips by radius · Gaussian truncation T(a/w)</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
         <path class="bm" d="M8 32 H 52"/>
         <path class="ln" d="M52 24 L 68 30 L 68 34 L 52 40 Z"/>
         <path class="ln" d="M68 32 C 84 32, 90 20, 112 22" stroke-dasharray="4 3"/>
@@ -611,6 +672,20 @@ footer{
       <p>Where paths end: a beam dump safely absorbs unwanted light, while a power meter reads the optical power via photodetection — the readout you use in the simulator to verify every splitting ratio.</p>
       <div class="cmath"><span>I = ℛ·P</span><span>,</span><span>ℛ =</span><span class="frac"><span class="num">ηeλ</span><span class="den">hc</span></span></div>
       <div class="phys">Absorptive dissipation · photocurrent ∝ power · readout on every branch</div>
+    </div>
+
+    <div class="comp-card reveal">
+      <div class="icon"><svg viewBox="0 0 120 64">
+        <rect class="ln" x="52" y="14" width="44" height="36" rx="2"/>
+        <rect class="ln-fill" x="42" y="24" width="10" height="16" rx="1"/>
+        <ellipse class="bm-dim" cx="74" cy="32" rx="13" ry="7"/>
+        <path class="bm" d="M8 32 H 42"/>
+      </svg></div>
+      <div class="tag">Camera</div>
+      <h3>Imaging Sensor</h3>
+      <p>Terminates the beam and reports what a beam profiler would actually show you: the spot size in pixels on each axis, how much of the sensor it fills, and whether it is clipped. An elliptical beam can overrun the short side while the long side is still comfortable, so both axes are quoted separately.</p>
+      <div class="cmath"><span>N<sub>px</sub> =</span><span class="frac"><span class="num">2w</span><span class="den">p</span></span><span>,</span><span>fill =</span><span class="frac"><span class="num">2w<sub>∥</sub></span><span class="den">L<sub>W</sub></span></span><span>,</span><span class="frac"><span class="num">2w<sub>⊥</sub></span><span class="den">L<sub>H</sub></span></span></div>
+      <div class="phys">Pixel-pitch sampling · per-axis fill and clipping · ⌀ = 2w on both axes</div>
     </div>
 
   </div>
@@ -671,7 +746,7 @@ footer{
 </main>
 
 <footer>
-  <div>MISSALIGN · Optical Path Designer</div>
+  <div>MissAlign · Optical Path Designer</div>
   <div>IAMS Yb Lab · 2026</div>
 </footer>
 
