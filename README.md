@@ -86,6 +86,14 @@ The full list, with the reasoning behind each, is in
   editing; a typo yields a blank page, not a stack trace.
 - **Docs may name files you do not have.** `assets/`, `scenes/` and `tools/` are
   local-only — see [LOCAL-FILES.md](LOCAL-FILES.md).
+- **The repo carries 21.5 MB of embedded 3D geometry, and that is a deliberate
+  deviation from the lab handbook.** 96% of `simulator.html` is `data:model/stl;base64`
+  blobs for the nanofiber-MOT board. [conventions.md](https://github.com/iams-yb-lab/lab-handbook/blob/main/conventions.md)
+  keeps 3D exports out of git and attaches them to a tagged release instead. That rule
+  cannot be followed here without breaking the property this tool is built on: one
+  self-contained file, no build step, opening straight off the filesystem — an external
+  fetch fails under `file://`. The standalone 26 MB STL *was* removed from history; the
+  inline copy stays on purpose. Do not "fix" it by splitting the geometry out.
 
 ## Provenance
 
