@@ -108,7 +108,8 @@ account is in [ABOUT.md](ABOUT.md); per-session detail is in
 [simulator/CHANGELOG.md](simulator/CHANGELOG.md) and [logs/](logs/).
 
 [LICENSE](LICENSE) is MIT and names one copyright holder, covering the contributions
-described above; the upstream repo carries no licence of its own, and this repo does not
-relicense it on its behalf.
+described above. The upstream repo carries no licence of its own and this repo does not
+relicense it on its behalf — [NOTICE](NOTICE) states that, and keeps LICENSE as verbatim
+MIT so it stays machine-detectable.
 
 **Maintainer:** Yi-Cheng "Maximus" Liu.

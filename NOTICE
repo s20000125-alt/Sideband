@@ -1,0 +1,12 @@
+# Notice
+
+This work builds on the original simulator by @s20000125-alt, published at
+<https://github.com/iams-yb-lab/frequency_shift_simulator>, which carries no
+licence of its own. Its history is grafted into this repository, so those
+commits and their authorship are part of this repo's record.
+
+The MIT grant in [LICENSE](LICENSE) covers the contributions of the copyright
+holder named there. See [ABOUT.md](ABOUT.md), "Where it started", for what each
+author wrote, and the header comment at the top of
+[simulator/simulator.html](simulator/simulator.html), which carries the same
+notice with the file when it is copied on its own.
