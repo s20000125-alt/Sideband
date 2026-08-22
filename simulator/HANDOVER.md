@@ -4,8 +4,9 @@
 - `simulator/simulator.html` — the WORKING file (all edits go here). Single self-contained
   HTML app, **17.1k lines** at rev 5, six inline `<script>` blocks (one of them ~13 MB of base64
   STL — never `grep` it without `cut`). `index.html` is a landing page only.
-- `simulator/simulator_original.html` — pristine original. **Never edit.** Used to restore
-  sections verbatim when a change is rejected ("go back to the original X code").
+- The pristine original is **not in the tree** — it is bit-identical to the tip of the
+  grafted upstream history. Retrieve it when a change is rejected ("go back to the
+  original X code") with `git show upstream/main:simulator.html`.
 - User tests in the browser; remind them to hard-reload (Ctrl+F5). Scenes autosave to localStorage.
 
 ## Verifying an edit (no Node on this machine)

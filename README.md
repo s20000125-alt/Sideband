@@ -28,7 +28,7 @@ to `localStorage`; hard-reload (Ctrl+F5 / Cmd+Shift+R) after editing the file.
 |---|---|
 | [ABOUT.md](ABOUT.md) | Project introduction: capabilities, origin, and the contributions on top of it. |
 | [MANUAL.md](MANUAL.md) | **User manual** — the place to start if you just want to use it. |
-| [simulator/](simulator/) | The app. `simulator.html` is the **working file — all edits go here**; `simulator_original.html` is the pristine upstream copy, **never edited**, used to restore a section verbatim when a change is rejected. `index.html` is a landing page. |
+| [simulator/](simulator/) | The app. `simulator.html` is the **working file — all edits go here**. `index.html` is a landing page. |
 | [simulator/HANDOVER.md](simulator/HANDOVER.md) | Engine conventions, verification workflow, and the gotchas worth not rediscovering. **Read first when picking the project back up.** |
 | [simulator/CHANGELOG.md](simulator/CHANGELOG.md) | What changed in each work session, 2026-08-07 onward. |
 | [logs/](logs/) | One session log per working session — what changed, how, and what verified it — plus the screenshots they cite. [logs/README.md](logs/README.md) indexes them. |
@@ -38,9 +38,11 @@ to `localStorage`; hard-reload (Ctrl+F5 / Cmd+Shift+R) after editing the file.
 ## Working conventions
 
 - Edits go into `simulator/simulator.html` only. Two rejected attempts at the same
-  change → restore that section from `simulator_original.html` verbatim and re-ask.
-- One commit per verified edit round, so `simulator_original.html` stops being the
-  only way back.
+  change → restore that section verbatim from the pristine upstream file and re-ask.
+  It is no longer kept in the tree; get it from git:
+  `git show upstream/main:simulator.html > /tmp/original.html`.
+- One commit per verified edit round, so that upstream copy stops being the only way
+  back.
 - **Engine conventions, how to verify an edit, and the gotchas are in
   [simulator/HANDOVER.md](simulator/HANDOVER.md) — that file is the single source.**
   This README deliberately does not restate them: it used to, and both copies of the
@@ -69,9 +71,9 @@ The full list, with the reasoning behind each, is in
 - **Hard-reload after editing the file.** The live scene autosaves to `localStorage`
   and the browser caches the HTML aggressively. Ctrl+F5 / Cmd+Shift+R, or you will be
   looking at your previous edit and drawing wrong conclusions from it.
-- **`simulator_original.html` is never edited.** It is the pristine upstream copy and
-  the only way back when a change has to be reverted verbatim. All edits go in
-  `simulator.html`.
+- **The pristine upstream file is not in the tree.** It is the way back when a change
+  has to be reverted verbatim, and lives in the grafted upstream history:
+  `git show upstream/main:simulator.html`. All edits go in `simulator.html`.
 - **Beam sizes are 1/e² radii**, quoted as `w`. Diameters are written `⌀ = 2w`. Mixing
   the two silently gives you a factor-of-2 error in every aperture check.
 - **World units are millimetres** everywhere, including the fine-nudge controls.
