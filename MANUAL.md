@@ -287,9 +287,9 @@ figure never goes stale.
 | ⬇ w(z) CSV | The plotted beam trace as data |
 | Export CAD (3D tab) | The 3D scene geometry |
 
-Saved scenes in [`scenes/`](scenes/) double as examples — [`scenes/README.md`](scenes/README.md)
-is a dated timeline of them, and the largest are full 4–6 board lab layouts worth opening just to
-see what a finished path looks like.
+Saved scenes in `scenes/` double as examples — its `README.md` is a dated timeline of them, and
+the largest are full 4–6 board lab layouts worth opening just to see what a finished path looks
+like. That directory is kept out of git; see [`LOCAL-FILES.md`](LOCAL-FILES.md) for where it lives.
 
 ---
 

@@ -171,7 +171,7 @@ than just "roughly here".
 
 The MOT chamber is now a first-class board preset, its outline, keep-out radius and ⌀60
 through-hole traced from the actual assembly STL
-([`assets/breadboard/`](assets/breadboard/)). Beams interact with the chamber body and the
+(`assets/breadboard/`, kept out of git — see [`LOCAL-FILES.md`](LOCAL-FILES.md)). Beams interact with the chamber body and the
 dispenser flat, so a path that would physically hit the chamber is blocked on screen instead
 of silently passing through it.
 
@@ -234,8 +234,9 @@ and after, so existing scenes are provably unaffected.
 | [`simulator/simulator.html`](simulator/simulator.html) | **The app.** Open this. |
 | [`MANUAL.md`](MANUAL.md) | User manual — controls, components, workflows. |
 | [`simulator/index.html`](simulator/index.html) | Landing page: what it does and the physics behind it. |
-| [`scenes/`](scenes/) | Saved layouts, with [a timeline](scenes/README.md). |
+| `scenes/` | Saved layouts, with a dated timeline. Local-only — see [`LOCAL-FILES.md`](LOCAL-FILES.md). |
 | [`simulator/CHANGELOG.md`](simulator/CHANGELOG.md) | Every change, per session. |
 | [`simulator/HANDOVER.md`](simulator/HANDOVER.md) | Engine conventions and gotchas — read before editing. |
 | [`logs/`](logs/) | Session logs and the evidence behind them. |
-| [`assets/`](assets/) | Source geometry and reference images. |
+| `assets/` | Source geometry and reference images. Local-only — see [`LOCAL-FILES.md`](LOCAL-FILES.md). |
+| [`LICENSE`](LICENSE) | MIT, two copyright holders. |
