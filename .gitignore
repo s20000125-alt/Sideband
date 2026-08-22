@@ -1,4 +1,37 @@
-# OS / editor cruft
+# Adapted from the lab handbook's templates/gitignore-python-kicad.
+# The Python and KiCad sections are dropped: this repo is a single-file
+# browser app with no build step, no Python, and no board design.
+
+# secrets
+.env
+*.local
+
+# data — the handbook keeps measurement data out of git (NAS + a pointer file)
+*.h5
+*.npy
+*.csv
+*.tdms
+data/
+raw/
+
+# generated exports — attach to a tagged release, never commit
+# (w(z) caustic CSV, schematic SVG/PNG, and 3D geometry exports)
+*.step
+*.stp
+*.wrl
+gerbers/
+
+# Local-only, never pushed: lab-internal material kept on disk and on the NAS.
+# The handbook keeps 3D exports and measurement data out of git; these scene
+# layouts and reference images are lab-internal, so they stay here too.
+assets/
+scenes/
+tools/
+
+# a reference copy of another org repo, not part of this one
+lab-handbook/
+
+# os / editor cruft
 .DS_Store
 Thumbs.db
 desktop.ini
