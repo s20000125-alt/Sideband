@@ -22,6 +22,12 @@
   --font-display:'Playfair Display', Georgia, serif;
   --font-ui:'Inter', sans-serif;
   --font-mono:'JetBrains Mono', monospace;
+  /* Wordmark size, shared so the descender padding and the margin that cancels
+     it derive from ONE number. They must not be written as `em` in two places:
+     em resolves against each element's OWN font-size, so the same `.14em` is
+     20.7px on the 148px h1 but 2.24px on the 16px span that wraps it. */
+  --wm-fs:clamp(56px, 11.5vw, 148px);
+  --wm-desc:.14;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -73,10 +79,19 @@ main{position:relative;z-index:1}
 
 h1.wordmark{
   font-family:var(--font-display);font-weight:800;
-  font-size:clamp(56px, 11.5vw, 148px);
+  font-size:var(--wm-fs);
   line-height:.98;letter-spacing:.045em;
+  /* background-clip:text paints the gradient over the element's BACKGROUND BOX
+     and uses the glyphs as a mask — so any ink outside that box gets no paint
+     at all. Playfair's descender sits 0.10–0.114em below a line-height:.98 box
+     at every clamp size, which sheared the tail off the "g". The padding
+     extends the box; .wordmark-sheen carries the negative margin so the layout
+     below is unmoved AND the sheen overlay still covers the descender. */
+  padding-bottom:calc(var(--wm-fs) * var(--wm-desc));
+  /* Stops rescaled by .98/1.12 = .875 so the banding stays exactly where it was
+     on the letter bodies; the tail colour then fills the new descender strip. */
   background:linear-gradient(180deg,
-    #FFFFFF 0%, #E9EAEE 28%, #A8ABB5 46%, #63666F 52%, #C9CCD4 60%, #F5F6F8 78%, #DADCE2 100%);
+    #FFFFFF 0%, #E9EAEE 24.5%, #A8ABB5 40.25%, #63666F 45.5%, #C9CCD4 52.5%, #F5F6F8 68.25%, #DADCE2 87.5%, #DADCE2 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   position:relative;
   filter:drop-shadow(0 2px 22px rgba(190,200,225,.16));
@@ -86,6 +101,7 @@ h1.wordmark em{
 }
 .wordmark-sheen{
   position:relative;display:inline-block;
+  margin-bottom:calc(var(--wm-fs) * var(--wm-desc) * -1);  /* cancels the h1's padding */
 }
 .wordmark-sheen::after{
   content:'';position:absolute;inset:0;pointer-events:none;
