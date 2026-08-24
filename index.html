@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MissAlign — moved to /simulator/</title>
+  <link rel="canonical" href="simulator/">
+  <meta http-equiv="refresh" content="0; url=simulator/">
+  <script>
+    // The app moved from the repo root into simulator/. Keep every old link
+    // working: forward deep links, query strings and anchors unchanged.
+    // "/foo/simulator.html?x#y" -> "/foo/simulator/simulator.html?x#y"
+    (function () {
+      var p = location.pathname;
+      var base = p.replace(/[^/]*$/, "");          // directory part
+      var file = p.slice(base.length) || "";       // "" | "index.html" | "simulator.html"
+      if (file === "index.html") file = "";
+      location.replace(base + "simulator/" + file + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body>
+  <p>MissAlign now lives in <a href="simulator/">simulator/</a>.
+     You should be redirected automatically.</p>
+</body>
+</html>

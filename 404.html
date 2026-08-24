@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MissAlign — moved to /simulator/</title>
+  <script>
+    // Any old deep link that no longer resolves at the root lands here.
+    // Retry it once under simulator/, preserving query string and anchor.
+    (function () {
+      var p = location.pathname;
+      if (p.indexOf("/simulator/") !== -1) return;   // already retried; do not loop
+      var base = p.replace(/[^/]*$/, "");
+      var file = p.slice(base.length) || "";
+      if (file === "index.html") file = "";
+      location.replace(base + "simulator/" + file + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body>
+  <p>MissAlign now lives in <a href="/frequency_shift_simulator/simulator/">simulator/</a>.</p>
+</body>
+</html>

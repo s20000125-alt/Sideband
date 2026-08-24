@@ -29,6 +29,7 @@ to `localStorage`; hard-reload (Ctrl+F5 / Cmd+Shift+R) after editing the file.
 | [ABOUT.md](ABOUT.md) | Project introduction: capabilities, origin, and the contributions on top of it. |
 | [MANUAL.md](MANUAL.md) | **User manual** — the place to start if you just want to use it. |
 | [simulator/](simulator/) | The app. `simulator.html` is the **working file — all edits go here**. `index.html` is a landing page. |
+| `index.html`, `404.html` (root) | Redirect stubs only. The app moved out of the repo root into `simulator/`, and GitHub Pages serves this repo from the root — these keep <https://iams-yb-lab.github.io/frequency_shift_simulator/> and every old deep link working. Adapted from the handbook's `templates/redirect-stub`. **Not** the app; do not edit them expecting a change on screen. |
 | [simulator/HANDOVER.md](simulator/HANDOVER.md) | Engine conventions, verification workflow, and the gotchas worth not rediscovering. **Read first when picking the project back up.** |
 | [simulator/CHANGELOG.md](simulator/CHANGELOG.md) | What changed in each work session, 2026-08-07 onward. |
 | [logs/](logs/) | One session log per working session — what changed, how, and what verified it — plus the screenshots they cite. [logs/README.md](logs/README.md) indexes them. |
