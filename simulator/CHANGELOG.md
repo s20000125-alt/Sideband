@@ -2,7 +2,7 @@
 
 All modifications live in `simulator/simulator.html`.
 The untouched upstream file is not kept in the tree; retrieve it with
-`git show upstream/main:simulator.html`.
+`git show original-pre-merge:simulator.html`.
 How each session was verified is stated in its own entry below; the current method is in
 [HANDOVER.md](HANDOVER.md) ("Verifying an edit"). Early sessions used a bracket/backtick balance
 count against the original — that only ever proved the file was *balanced*, and was superseded on

@@ -41,7 +41,7 @@ to `localStorage`; hard-reload (Ctrl+F5 / Cmd+Shift+R) after editing the file.
 - Edits go into `simulator/simulator.html` only. Two rejected attempts at the same
   change → restore that section verbatim from the pristine upstream file and re-ask.
   It is no longer kept in the tree; get it from git:
-  `git show upstream/main:simulator.html > /tmp/original.html`.
+  `git show original-pre-merge:simulator.html > /tmp/original.html`.
 - One commit per verified edit round, so that upstream copy stops being the only way
   back.
 - **Engine conventions, how to verify an edit, and the gotchas are in
@@ -73,8 +73,8 @@ The full list, with the reasoning behind each, is in
   and the browser caches the HTML aggressively. Ctrl+F5 / Cmd+Shift+R, or you will be
   looking at your previous edit and drawing wrong conclusions from it.
 - **The pristine upstream file is not in the tree.** It is the way back when a change
-  has to be reverted verbatim, and lives in the grafted upstream history:
-  `git show upstream/main:simulator.html`. All edits go in `simulator.html`.
+  has to be reverted verbatim, and lives at the `original-pre-merge` tag:
+  `git show original-pre-merge:simulator.html`. All edits go in `simulator.html`.
 - **Beam sizes are 1/e² radii**, quoted as `w`. Diameters are written `⌀ = 2w`. Mixing
   the two silently gives you a factor-of-2 error in every aperture check.
 - **World units are millimetres** everywhere, including the fine-nudge controls.
